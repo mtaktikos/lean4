@@ -30,6 +30,8 @@ time. These changes can likely be done similar to the ones in EmitC:
     - function decls need to be fixed
     - full applications need to be fixed
     - tail calls need to be fixed
+- signed integer introduction:
+  - mirror changes for boxing/unboxing IntX from EmitC
 -/
 
 def leanMainFn := "_lean_main"

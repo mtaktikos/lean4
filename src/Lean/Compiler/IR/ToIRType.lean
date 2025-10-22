@@ -64,6 +64,11 @@ where fillCache : CoreM IRType := do
     | ``UInt32 => return .uint32
     | ``UInt64 => return .uint64
     | ``USize => return .usize
+    | ``Int8 => return .int8
+    | ``Int16 => return .int16
+    | ``Int32 => return .int32
+    | ``Int64 => return .int64
+    | ``ISize => return .isize
     | ``Float => return .float
     | ``Float32 => return .float32
     | ``lcErased => return .erased
@@ -185,20 +190,33 @@ where fillCache := do
         nextIdx := nextIdx + 1
         pure <| .object i irFieldType
       | .usize => pure <| .usize 0
+      | .isize => pure <| .usize 0
       | .erased => .pure <| .erased
       | .void => .pure <| .void
       | .uint8 =>
         has1BScalar := true
         .pure <| .scalar 1 0 .uint8
+      | .int8 =>
+        has1BScalar := true
+        .pure <| .scalar 1 0 .int8
       | .uint16 =>
         has2BScalar := true
         .pure <| .scalar 2 0 .uint16
+      | .int16 =>
+        has2BScalar := true
+        .pure <| .scalar 2 0 .int16
       | .uint32 =>
         has4BScalar := true
         .pure <| .scalar 4 0 .uint32
+      | .int32 =>
+        has4BScalar := true
+        .pure <| .scalar 4 0 .int32
       | .uint64 =>
         has8BScalar := true
         .pure <| .scalar 8 0 .uint64
+      | .int64 =>
+        has8BScalar := true
+        .pure <| .scalar 8 0 .int64
       | .float32 =>
         has4BScalar := true
         .pure <| .scalar 4 0 .float32

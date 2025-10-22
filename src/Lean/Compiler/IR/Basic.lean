@@ -82,6 +82,7 @@ inductive IRType where
   -- TODO: Move this upwards after a stage0 update.
   | tagged
   | void
+  | int8 | int16 | int32 | int64 | isize
   deriving Inhabited, BEq, Repr
 
 namespace IRType
@@ -94,6 +95,11 @@ def isScalar : IRType → Bool
   | uint32   => true
   | uint64   => true
   | usize    => true
+  | int8    => true
+  | int16   => true
+  | int32   => true
+  | int64   => true
+  | isize    => true
   | _        => false
 
 def isObj : IRType → Bool
@@ -556,6 +562,9 @@ def getUnboxOpName (t : IRType) : String :=
   | IRType.usize    => "lean_unbox_usize"
   | IRType.uint32   => "lean_unbox_uint32"
   | IRType.uint64   => "lean_unbox_uint64"
+  | IRType.isize    => "lean_unbox_isize"
+  | IRType.int32   => "lean_unbox_int32"
+  | IRType.int64   => "lean_unbox_int64"
   | IRType.float    => "lean_unbox_float"
   | IRType.float32  => "lean_unbox_float32"
   | _               => "lean_unbox"
