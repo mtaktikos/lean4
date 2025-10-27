@@ -165,9 +165,31 @@ The challenge is to provide a rigorous mathematical proof. The Lean formalizatio
 
 ## Files
 
-- `cyclic_sum_proof.lean` - Lean 4 formalization with examples
-- `cyclic_sum_proof_README.md` - This documentation file
+- **`cyclic_sum_proof.lean`** - Lean 4 formalization with examples and theorem statement
+- **`cyclic_sum_proof_README.md`** - This comprehensive documentation file
+- **`test_cyclic_sum.py`** - Python test script for computational verification
 - Related files: `cyclic_sum_inequality.lean`, `cyclic_sum_minimal.lean` (different problem variants)
+
+### Running the Test Script
+
+```bash
+cd tests/playground
+python3 test_cyclic_sum.py
+```
+
+This will run:
+- Specific hand-picked examples
+- 100 random trials for each N from 2 to 6
+- Boundary cases (zeros, small N, etc.)
+
+Example output:
+```
+✓ All ones (N=3)                : u = [1, 1, 1]          →       0.00
+✓ Alternating (N=3)             : u = [1, 2, 1]          →       9.00
+✓ N=3: min=    3.20, max= 2737.08, negative=0/100
+CONCLUSION: No counterexample found.
+The inequality appears to be TRUE.
+```
 
 ## References
 
