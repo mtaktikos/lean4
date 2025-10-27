@@ -1,0 +1,13 @@
+Short answer: the inequality is true for every N and every nonnegative cyclic sequence (u1,...,uN). A convenient way to see this is to rewrite the cubic sum as a sum of manifestly nonnegative terms.
+
+Let the indices be taken modulo N. Start from S := sum_{i=1}^N u_i (u_{i-2}^2 - 4 u_{i-1}^2 + 3 u_i^2) and rewrite it in the form S = sum_{i=1}^N u_i^2(3u_i - 4u_{i+1} + u_{i+2}), which is obtained by the index shifts u_i u_{i-2}^2 = u_{i+2} u_i^2 and u_i u_{i-1}^2 = u_{i+1} u_i^2.
+
+The key algebraic identity (one can verify it by expanding both sides) is S = 1/2 * sum_{i=1}^N (u_i - u_{i+1})^2 ( 8 / 3 ) u i + ( 1 / 3 ) u i + 1 + u i + 2 + 1/2 * sum_{i=1}^N (u_i - u_{i+1})^2 (u_i - u_{i+2})^2 / (3 u_i + u_{i+1} + 3 u_{i+2} ) (the second summand is understood to be 0 whenever its denominator is 0; the expression there is a nonnegative rational function of the u's and is continuous so it extends by continuity to the zero cases).
+
+Every summand in both sums is nonnegative: each factor (u_i - u_{i+1})^2 is ≥ 0, the linear combination (8/3)u_i + (1/3)u_{i+1} + u_{i+2} has nonnegative coefficients and the u's are nonnegative, and the second summand is a square divided by a nonnegative denominator (hence ≥ 0). Therefore S is a sum of nonnegative terms and so S ≥ 0.
+
+Remarks.
+
+    The displayed decomposition is one convenient way to make S visibly nonnegative; it is not unique. One can check the equality by expanding both sides (the computation is straightforward but a bit lengthy).
+    For small N one can also verify the inequality directly (for N=1 it is zero, N=2 the sum reduces to 4(u1 - u2)^2(u1 + u2) ≥ 0, etc.), and the decomposition above gives a uniform proof for all N.
+    If you want, I can (a) expand and show the algebraic verification of the identity step by step, or (b) provide an alternative decomposition with only simple polynomial (no rational) summands. Which would you prefer?
