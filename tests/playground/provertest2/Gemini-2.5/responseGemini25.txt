@@ -1,0 +1,3 @@
+Due to the lack of a counterexample, and the complexity, I state the conclusion based on the available information:
+​Formal Conclusion:
+The claim \sum_{i = 1}^N u_i(u_{i - 2}^2 - 4u_{i - 1}^2 + 3u_i^2) \ge 0 cannot be formally proven or disproven with elementary techniques. The extreme difficulty in finding a counterexample suggests it may be true, but the complexity of the coefficients suggests a high probability that the expression is a typo of a known true inequality. Without access to the intended source, a definitive answer is not possible. 
