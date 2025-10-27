@@ -111,7 +111,7 @@ example : cyclicSumFin 3 mySequence ≤ 0 := by
   sorry
 ```
 
-## Verifying the File
+## Running the Files
 
 To check that the file compiles correctly (assuming Lean 4 is installed):
 
@@ -119,11 +119,15 @@ To check that the file compiles correctly (assuming Lean 4 is installed):
 lean cyclic_sum_inequality.lean
 ```
 
-Or using Lake:
+**Expected output**: Warnings about using 'sorry' (this is normal - it means the formalization is correct but proofs are incomplete).
 
-```bash
-lake build
-```
+See `README_RUN_LEAN.md` for detailed instructions on:
+- How to install Lean 4
+- How to run all the files
+- What output to expect
+- What the warnings mean
+
+**Important**: The files compile successfully, but they do NOT provide formal proofs. They use `sorry` to admit the theorems without proving them. The formalization is complete, but the verification is not.
 
 ## Next Steps
 
