@@ -27,10 +27,10 @@ The previous work completed the **formalization** but not the **formal verificat
 
 | Aspect | Status | Explanation |
 |--------|--------|-------------|
-| **Formalization** | ✅ Complete | Problem stated correctly in Lean's type system |
-| **Type checking** | ✅ Pass | All types match, code compiles |
-| **Formal proof** | ❌ Missing | Uses `sorry` instead of actual proofs |
-| **Verification** | ❌ Incomplete | Lean has NOT verified the theorem |
+| Formalization | ✅ Complete | Problem stated correctly in Lean's type system |
+| Type checking | ✅ Pass | All types match, code compiles |
+| Formal proof | ❌ Missing | Uses `sorry` instead of actual proofs |
+| Verification | ❌ Incomplete | Lean has NOT verified the theorem |
 
 ## Files Created in This Session
 
@@ -53,6 +53,8 @@ I've created several new files to address your question:
 
 ```bash
 # Install Lean 4 (if not already installed)
+# See https://lean-lang.org/install/ for official installation instructions
+# Or use elan (Lean version manager):
 curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
 elan install leanprover/lean4:stable
 
@@ -109,7 +111,7 @@ This is substantial mathematical work beyond just formalization.
 
 ## Conclusion
 
-**Your original files DO run in Lean successfully.**
+Your original files DO run in Lean successfully.
 
 Lean says:
 - ✅ "Your formalization is correct"
