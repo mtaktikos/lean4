@@ -2,4 +2,4 @@
 *.lean.cpp
 *.cmi
 *.cmx
-*.o
+*.o__pycache__/
