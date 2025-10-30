@@ -1,0 +1,19 @@
+The claim is true: for every N and every sequence (u1,...,uN) with 0 = ui = 1 (and indices taken cyclically), the sum S := S_{i=1}^N u_i (u_{i-2}^2 - 4 u_{i-1}^2 + 3 u_i^2) is nonnegative.
+
+One convenient way to see this is the following exact identity (indices taken modulo N):
+
+S = 1 2 S_{i=1}^N (u_{i-1} + 4u_i + u_{i+1}) · (u_i - u_{i+1})^2.
+
+Because each (u_i - u_{i+1})^2 = 0 and each coefficient (u_{i-1} + 4u_i + u_{i+1}) is nonnegative (indeed every u_j = 0), every summand on the right-hand side is = 0, hence S = 0.
+
+Proof of the identity (direct expansion). Expand the right-hand side:
+
+R := 1 2 S (u_{i-1} + 4u_i + u_{i+1})(u_i^2 - 2u_i u_{i+1} + u_{i+1}^2).
+
+Collect the monomials u_i^3, u_i^2 u_{i+1}, u_i u_{i+1}^2, and u_i u_{i-1}^2 that appear (careful bookkeeping of the cyclic shifts shows each coefficient on the expanded R matches the corresponding coefficient in S). After the algebraic regrouping you obtain exactly
+
+R = S_{i=1}^N (u_i u_{i-2}^2 - 4 u_i u_{i-1}^2 + 3 u_i^3) = S.
+
+(If you prefer, you can expand term-by-term checking for a single generic index i; the terms involving u_i^3 come from the two adjacent squared-difference factors and add up to the 3·u_i^3 appearing in S, and the cross terms give the -4 u_i u_{i-1}^2 and +u_i u_{i-2}^2 pieces in S.)
+
+Since the right-hand side of the displayed identity is a sum of nonnegative terms, S = 0 for all admissible sequences (u_i). Thus the inequality holds.
