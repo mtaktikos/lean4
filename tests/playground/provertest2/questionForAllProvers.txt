@@ -1,9 +1,13 @@
 Question for all:
 
-Can you formally solve the following problem:   Let N be a natural number and let 
-u_i >= 0 between 1 and N. We set u_0 = u_N and u_{N+1} = u_1. The claim is
-$\sum_{i = 1}N u_i(u_{i - 2}^2 - 4u_{i - 1}^2 + 3u_i^2) >= 0$
-(I tried to express that in LaTeX code)
- Please give a proof or a counterexample.
+Let N be a natural number and let
+0 <= u_i <=1 (for reals u_i) for indices i between 1 and N.
+We set u_ 0 = u_N and u_ {-1} = u_{N-1}.
+The claim is
+$\sum_ {i = 1} N u_i (u_ {i - 2}^2 - 4 u_ {i - 1}^2 + 3 u_i^2) >= 0 $
+Please give a proof or a counterexample.
 
 Note: Lean and Mathematica don't understand questions in natural language, and for beginners it is a non-trivial task to translate the question in their language.
+
+
+
