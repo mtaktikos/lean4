@@ -546,7 +546,7 @@ theorem equiv_iff_toListModel_perm {t t' : Impl α β} :
 theorem Equiv.toListModel_eq [Ord α] [OrientedOrd α]
     {t t' : Impl α β} (h : t.Equiv t') (htb : t.Ordered) (htb' : t'.Ordered) :
     t.toListModel = t'.toListModel := by
-  refine List.Perm.eq_of_sorted ?_ htb htb' h.1
+  refine List.Perm.eq_of_pairwise ?_ htb htb' h.1
   intro a b ha hb hlt hgt
   rw [OrientedOrd.eq_swap, hlt] at hgt
   contradiction
@@ -959,7 +959,7 @@ theorem ordered_insertIfNew [Ord α] [TransOrd α] {k : α} {v : β k} {l : Impl
 theorem toListModel_insertIfNew [Ord α] [TransOrd α] [BEq α] [LawfulBEqOrd α] {k : α} {v : β k}
     {l : Impl α β} (hlb : l.Balanced) (hlo : l.Ordered) :
     (l.insertIfNew k v hlb).impl.toListModel.Perm (insertEntryIfNew k v l.toListModel) := by
-  simp only [Impl.insertIfNew, insertEntryIfNew, cond_eq_if, contains_eq_containsKey hlo]
+  simp only [Impl.insertIfNew, insertEntryIfNew, cond_eq_ite, contains_eq_containsKey hlo]
   split
   · rfl
   · refine (toListModel_insert hlb hlo).trans ?_
@@ -1350,8 +1350,7 @@ theorem toListModel_alterₘ [Ord α] [TransOrd α] [BEq α] [LawfulBEqOrd α] {
     cases f none <;> rfl
   · simp only [Cell.Const.alter, Cell.ofOption, Const.alterKey, Option.toList_some]
     have := OrientedCmp.eq_symm <| hl l rfl
-    simp only [getValue?, compare_eq_iff_beq.mp this, cond_eq_if,
-      reduceIte]
+    simp only [getValue?, compare_eq_iff_beq.mp this, cond_eq_ite, reduceIte]
     cases f _
     · simp [eraseKey, compare_eq_iff_beq.mp this]
     · simp [insertEntry, containsKey, replaceEntry, compare_eq_iff_beq.mp this]
