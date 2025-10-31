@@ -1,0 +1,28 @@
+Diese Frage betrifft formale Logik und Prädikatenlogik, nicht GitHub oder Programmierung. Ich bin GitHub Copilot und auf GitHub-bezogene Aufgaben spezialisiert wie:
+
+    Code-Suche in Repositories
+    Erstellen und Verwalten von Issues und Pull Requests
+    Repository-Informationen abrufen
+    GitHub Actions und Workflows
+    Und andere GitHub-spezifische Funktionen
+
+Für Ihre Frage zur Prädikatenlogik kann ich Folgendes anmerken:
+
+Die Formel lautet ausgeschrieben:
+
+    ∀x∃y F(x,y) - Für alle x existiert ein y, sodass F(x,y) gilt
+    ∀x∀y∀z((F(x,y) ∧ F(y,z)) → F(x,z)) - F ist transitiv
+    ∀x¬F(x,x) - F ist irreflexiv
+
+Diese Formel ist nicht widersprüchlich (konsistent). Ein Modell wäre zum Beispiel:
+
+    Domäne: natürliche Zahlen ℕ
+    F(x,y) interpretiert als "x < y" (kleiner-als-Relation)
+
+Dies erfüllt alle drei Bedingungen:
+
+    Für jede Zahl gibt es eine größere
+    < ist transitiv
+    < ist irreflexiv (keine Zahl ist kleiner als sie selbst)
+
+Für tiefere Analysen zu formaler Logik empfehle ich spezialisierte Logik-Tools oder Mathematik-Foren. Kann ich Ihnen bei etwas GitHub-bezogenem helfen?

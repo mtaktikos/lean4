@@ -1,0 +1,21 @@
+Kurzantwort: Nein, die Formel ist nicht widersprüchlich (sie ist erfüllbar).
+
+Begründung:
+
+    Die Formel lautet: ∀x∃y Fxy ∧ ∀x∀y∀z((Fxy ∧ Fyz) → Fxz) ∧ ∀x ¬Fxx.
+        Für alle x gibt es ein y mit F(x,y).
+        F ist transitiv.
+        F ist irreflexiv.
+
+Modell:
+
+    Domäne: die natürlichen Zahlen ℕ.
+    Interpretation: F(x,y) bedeutet x < y.
+
+Prüfung:
+
+    ∀x∃y Fxy: Für jedes x ist x < x+1, also gibt es ein y.
+    Transitivität: < ist transitiv.
+    Irreflexivität: Kein x ist kleiner als sich selbst.
+
+Damit ist die Formel konsistent (erfüllbar). Hinweis: Ein endliches Modell gibt es nicht, da ∀x∃y Fxy bedeutet, dass es keine maximalen Elemente gibt; das erzwingt Unendlichkeit.

@@ -1,0 +1,1 @@
+Ist die folgende Formel der Prädikatenlogik 1. Stufe widersprüchlich im Sinne der Prädikatenlogik 1. Stufe (ich verwende "A" für den Allquantor, "E" für den Existenzquantor, "~" für die Negation, "&" für die Konjunktion, "->" für die Implikation): AxEyFxy & AxAyAz((Fxy & Fyz) -> Fxz) & Ax~Fxx ?

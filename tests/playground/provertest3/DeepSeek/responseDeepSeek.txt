@@ -1,0 +1,75 @@
+Gehen wir die Formel schrittweise durch:
+
+Die Formel lautet:
+
+A_x E_y Fxy \ \&\ A_x A_y A_z ((Fxy \ \&\ Fyz) \to Fxz) \ \&\ A_x \lnot Fxx
+
+---
+
+1. Übersetzung in lesbare Notation
+
+·  \forall x \exists y \, F(x,y)
+    ("Für jedes x gibt es ein y, so dass F(x,y) gilt")
+·  \forall x \forall y \forall z \big( (F(x,y) \land F(y,z)) \to F(x,z) \big)
+    (Transitivität von F)
+·  \forall x \, \lnot F(x,x)
+    (Irreflexivität von F)
+
+---
+
+2. Semantische Bedeutung
+
+F ist also eine irreflexive, transitive Relation, bei der jedes Element in Relation zu irgendeinem Element steht.
+
+---
+
+3. Problemfindung
+
+Nehmen wir ein beliebiges a_1.
+Wegen  \forall x \exists y \, F(x,y)  gibt es a_2 mit F(a_1, a_2).
+
+Wegen  \forall x \exists y \, F(x,y)  auf a_2 angewendet, gibt es a_3 mit F(a_2, a_3).
+
+Transitivität:
+Aus F(a_1, a_2) und F(a_2, a_3) folgt F(a_1, a_3).
+
+Wiederhole: Für a_3 gibt es a_4 mit F(a_3, a_4), also F(a_1, a_4) usw.
+
+---
+
+4. Endlichkeitsfrage
+
+In einer unendlichen Domäne könnte man versuchen, ein Gegenbeispiel zu bauen:
+Zum Beispiel F(x,y) := x < y auf den natürlichen Zahlen:
+
+·  \forall x \exists y : x < y  (wahr, z.B. y = x+1)
+· Transitivität: ja
+· Irreflexivität: ja
+
+Das ist ein Modell! Also ist die Formel in der Prädikatenlogik erster Stufe erfüllbar (nicht widersprüchlich).
+
+---
+
+5. Warum dachte man vielleicht an Widerspruch?
+
+Weil man intuitiv denkt:
+Aus F(a_1, a_2), F(a_2, a_3), …, könnte man irgendwann durch Transitivität F(a_1, a_1) ableiten, was der Irreflexivität widerspricht.
+Aber das passiert nur, wenn die Kette zyklisch wird oder endlich mit einem letzten Element, das zu nichts in Relation steht.
+Durch die Bedingung  \forall x \exists y \, F(x,y)  muss jedes Element ein "größeres" (im Sinne von F) haben, also keine Maxima, also keine Zyklen möglich, wenn F als strikte Ordnung modelliert wird.
+
+Auf \mathbb{N} mit < funktioniert es.
+
+---
+
+6. Ergebnis
+
+Die Formel ist nicht widersprüchlich, sie ist erfüllbar (hat ein Modell).
+
+---
+
+Antwort:
+
+\boxed{\text{Nein}}
+\] 
+
+Die Formel ist in der Prädikatenlogik 1. Stufe nicht widersprüchlich. 

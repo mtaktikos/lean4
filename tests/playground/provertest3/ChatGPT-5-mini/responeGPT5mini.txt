@@ -1,0 +1,24 @@
+Kurz: Die Formel ist nicht widersprüchlich — sie ist erfüllbar.
+
+Formel (ausgeschrieben)
+
+    ∀x ∃y F(x,y)
+    ∀x∀y∀z ((F(x,y) ∧ F(y,z)) → F(x,z))
+    ∀x ¬F(x,x)
+
+Modellbeispiel
+
+    Domäne: ℕ (die natürlichen Zahlen)
+    Interpretation: F(x,y) := x < y
+
+Prüfung
+
+    Zu (1): Für jedes n ∈ ℕ gibt es m = n+1 mit n < m, also ∀x ∃y F(x,y).
+    Zu (2): Die Kleiner-als-Relation < ist transitiv, also ∀x∀y∀z ((x<y ∧ y<z) → x<z).
+    Zu (3): < ist irreflexiv, also ¬(x<x) für alle x.
+
+Damit ist ein Modell angegeben — die Formel ist erfüllbar, also nicht widersprüchlich.
+
+Zusatz: Es gibt kein endliches Modell Angenommen D wäre endlich. Wähle a0 ∈ D. Aus (1) existiert a1 mit F(a0,a1), dann a2 mit F(a1,a2) usw. Wegen Endlichkeit gibt es i<j mit ai = aj. Durch Transitivität folgt dann F(ai,ai), was (3) widerspricht. Widerspruch. Also jedes Modell muss unendlich sein.
+
+(Weitere gültige Modelle: (Z,<), (Q,<), (R,<) u. a. — kurz: jede unendliche Domäne mit einer irreflexiven, transitiven Relation ohne Maximalelemente.)

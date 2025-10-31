@@ -1,0 +1,23 @@
+Antwort:
+Die Formel ist nicht widersprüchlich (sie ist erfüllbar).
+
+Formel ausgeschrieben: 1. ∀x ∃y F(x, y)
+2. ∀x∀y∀z ((F(x, y) ∧ F(y, z)) → F(x, z))
+3. ∀x ¬F(x, x)
+
+Intuitive Bedeutung:
+
+    (1): Für jedes x gibt es ein y, sodass F(x, y) gilt ("F" ist linkstotal).
+    (2): F ist transitiv.
+    (3): F ist irreflexiv.
+
+Modell-Beispiel:
+Die natürlichen Zahlen ℕ mit „F(x, y): x < y“ erfüllen alle drei Bedingungen:
+
+    (1): Zu jedem x gibt es ein y > x (z.B. y = x+1).
+    (2): < ist transitiv.
+    (3): < ist irreflexiv.
+
+Fazit:
+Die Formel ist nicht widersprüchlich, denn sie hat mindestens ein Modell (z.B. die natürlichen Zahlen mit <).
+Sie ist allerdings nur in unendlichen Strukturen erfüllbar, da es zu jedem Element ein anderes geben muss (es gibt kein „größtes“ Element).
