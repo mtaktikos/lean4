@@ -100,4 +100,22 @@ Where:
 - `F` is the binary relation
 
 This can be written in a Lean file and type-checked to verify its correctness.
+
+## Quick Reference
+
+To use this formula in your own Lean file:
+
+```lean
+-- Define the formula for any type α and relation F
+def FormulaFromQuestion (α : Type) (F : α → α → Prop) : Prop :=
+  (∀ x, ∃ y, F x y) ∧ (∀ x y z, F x y → F y z → F x z) ∧ (∀ x, ¬F x x)
+```
+
+Or, for a specific relation:
+```lean
+variable (α : Type) (F : α → α → Prop)
+
+-- The formula states:
+#check (∀ x, ∃ y, F x y) ∧ (∀ x y z, F x y → F y z → F x z) ∧ (∀ x, ¬F x x)
+```
 -/
