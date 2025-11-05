@@ -90,8 +90,10 @@ You can compute the sum for these examples using `#eval`:
 ## Current Status
 
 ✅ **Complete Translation**: The problem has been fully translated to Lean's language
-⚠️ **No Proof**: The theorem uses `sorry` - it's stated but not proved
-⚠️ **No Counterexample**: No specific counterexample is provided
+✅ **Verified Examples**: All test cases satisfy the inequality (sum ≥ 0)
+✅ **Computational Evidence**: Python testing shows no counterexamples found
+⚠️ **No Formal Proof**: The theorem uses `sorry` - it's stated but not formally proved
+⚠️ **Conjecture Status**: The inequality appears to be TRUE based on extensive testing
 
 ## What This Means
 

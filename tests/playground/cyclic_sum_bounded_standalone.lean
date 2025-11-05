@@ -161,8 +161,10 @@ def allOnes (N : Nat) : Fin N → ℚ := fun _ => 1
   
   6. Proof Status:
      - The theorem uses 'sorry' as placeholder
-     - A proof or counterexample is needed to complete this
+     - A formal proof is needed to complete this
      - The examples can be computed with #eval to test specific cases
+     - Computational testing (via Python) shows no counterexamples - the inequality appears to be TRUE
+     - All tested examples with bounded values satisfy the inequality
 -/
 
 -- Type check all definitions
