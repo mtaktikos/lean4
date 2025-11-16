@@ -102,6 +102,27 @@ def orbit (n0 : Nat) : Nat → Nat
   | 0 => n0
   | t + 1 => T (orbit n0 t)
 
+-- Helper: check if a number is even
+def isEven (n : Nat) : Prop :=
+  n % 2 = 0
+
+-- Relationship between odd and even
+theorem odd_not_even (n : Nat) : isOdd n ↔ ¬isEven n := by
+  sorry
+
+-- Properties relating k, R, e, and T
+theorem e_cases (n : Nat) : e n = 0 ∨ e n = 1 ∨ e n ≥ 2 := by
+  sorry
+
+theorem e_from_k_odd (n : Nat) (h : kIsOdd n) : e n = 0 := by
+  sorry
+
+theorem e_from_k_mod2 (n : Nat) (h : kMod2_4 n) : e n = 1 := by
+  sorry
+
+theorem e_from_k_mod0 (n : Nat) (h : kMod0_4 n) : e n ≥ 2 := by
+  sorry
+
 /-
   Lemma 1: Transition of ⌊√2·T(n)⌋
   
@@ -186,6 +207,30 @@ theorem no_finite_cycles (n0 : Nat) (h_odd : isOdd n0) (h_pos : n0 > 0) :
     ¬(∀ t : Nat, ∃ i : Nat, i < cycle.length ∧ orbit n0 t = cycle[i]!) := by
   sorry
 
+/-
+  Properties from the paper
+  
+  The paper establishes that e(n) depends on k(n) mod 4:
+  - e(n) = 0 if k(n) ≡ 1, 3 (mod 4) [k(n) is odd]
+  - e(n) = 1 if k(n) ≡ 2 (mod 4)
+  - e(n) ≥ 2 if k(n) ≡ 0 (mod 4)
+  
+  By Lemma 2, the last case never occurs along the orbit from n₀ = 1.
+-/
+theorem e_value_from_invariant (n : Nat) (h_inv : invariant n) :
+  e n = 0 ∨ e n = 1 := by
+  sorry
+
+/-
+  No consecutive halving: if e(nₜ) = 1, then e(nₜ₊₁) = 0
+  
+  This follows because when e(nₜ) = 1, we have k(nₜ) ≡ 2 (mod 4),
+  and by Lemma 1 part 2, k(nₜ₊₁) = nₜ + 2 is odd, so e(nₜ₊₁) = 0.
+-/
+theorem no_consecutive_halving (n : Nat) (h_odd : isOdd n) (h_inv : invariant n) 
+  (h_e : e n = 1) : e (T n) = 0 := by
+  sorry
+
 section Examples
 
 -- Example: compute the first few terms of the orbit starting at 1
@@ -214,8 +259,35 @@ def checkOrbitGrowth (n0 : Nat) (len : Nat) : List (Nat × Bool) :=
     let next := orbit n0 (t + 1)
     (curr, next > curr)
 
+-- More detailed orbit information
+structure OrbitStep where
+  t : Nat           -- time step
+  n : Nat           -- value at time t
+  k_n : Nat         -- k(n) = ⌊√2·n⌋
+  r_n : Nat         -- R(n) = k(n) + 4
+  e_n : Nat         -- e(n) = ν₂(R(n))
+  next : Nat        -- T(n)
+  grew : Bool       -- did it grow from previous step?
+
+def orbitStepInfo (n0 : Nat) (t : Nat) : OrbitStep :=
+  let n := orbit n0 t
+  let k_n := k n
+  let r_n := R n
+  let e_n := e n
+  let next := T n
+  let grew := if t = 0 then true else next > n
+  { t := t, n := n, k_n := k_n, r_n := r_n, e_n := e_n, next := next, grew := grew }
+
+def detailedOrbit (n0 : Nat) (len : Nat) : List OrbitStep :=
+  (List.range len).map (orbitStepInfo n0)
+
 -- Check growth pattern for n0 = 1
 #eval checkOrbitGrowth 1 20
+
+-- Example: show detailed information for first 10 steps
+-- Note: The actual values might differ slightly from the paper due to 
+-- the rational approximation of √2, but the structure should be similar
+#eval detailedOrbit 1 10
 
 end Examples
 
