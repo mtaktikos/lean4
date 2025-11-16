@@ -1,0 +1,49 @@
+name: Compile DivergenceTheorem
+
+on:
+  pull_request:
+    paths:
+      - 'tests/playground/ingo251116/**'
+      - '.github/workflows/compile-divergence-theorem.yml'
+  workflow_dispatch:
+
+jobs:
+  compile-divergence-theorem:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libgmp-dev libuv1-dev
+
+      - name: Build Lean
+        run: |
+          cmake --preset release
+          make -C build/release -j$(nproc)
+
+      - name: Compile DivergenceTheorem
+        run: |
+          cd tests/playground/ingo251116
+          ./compile.sh DivergenceTheorem.lean
+
+      - name: Verify output exists
+        run: |
+          ls -lh tests/playground/ingo251116/DivergenceTheorem.lean.out
+          echo "✓ DivergenceTheorem.lean.out created successfully"
+
+      - name: Upload DivergenceTheorem.out as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: divergence-theorem-output
+          path: tests/playground/ingo251116/DivergenceTheorem.lean.out
+          retention-days: 30
+
+      - name: Test executable (run it)
+        run: |
+          cd tests/playground/ingo251116
+          ./DivergenceTheorem.lean.out || echo "Executable ran (exit code: $?)"
