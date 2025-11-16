@@ -1,0 +1,47 @@
+name: Build DivergenceTheorem and upload artifact
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ ingo ]
+
+jobs:
+  build-and-compile:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake ninja g++ pkg-config libpthread-stubs0-dev
+
+    - name: Configure & build Lean (release)
+      working-directory: ${{ github.workspace }}
+      run: |
+        cmake --preset release
+        make -C build/release -j$(nproc)
+
+    - name: Ensure compile script is executable
+      run: chmod +x tests/playground/ingo251116/compile.sh
+
+    - name: Compile DivergenceTheorem
+      run: bash tests/playground/ingo251116/compile.sh tests/playground/ingo251116/DivergenceTheorem
+
+    - name: Verify artifact exists
+      run: |
+        if [ ! -f tests/playground/ingo251116/DivergenceTheorem.out ]; then
+          echo "ERROR: DivergenceTheorem.out not found"
+          ls -la tests/playground/ingo251116 || true
+          exit 1
+        fi
+        echo "Found artifact: tests/playground/ingo251116/DivergenceTheorem.out"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DivergenceTheorem
+        path: tests/playground/ingo251116/DivergenceTheorem.out
