@@ -60,7 +60,7 @@ See also
 * `Init.Data.List.Erase` for lemmas about `List.eraseP` and `List.erase`.
 * `Init.Data.List.Find` for lemmas about `List.find?`, `List.findSome?`, `List.findIdx`,
   `List.findIdx?`, and `List.indexOf`
-* `Init.Data.List.MinMax` for lemmas about `List.min?` and `List.max?`.
+* `Init.Data.List.MinMax` for lemmas about `List.min?`, `List.min`, `List.max?` and `List.max`.
 * `Init.Data.List.Pairwise` for lemmas about `List.Pairwise` and `List.Nodup`.
 * `Init.Data.List.Sublist` for lemmas about `List.Subset`, `List.Sublist`, `List.IsPrefix`,
   `List.IsSuffix`, and `List.IsInfix`.
@@ -1217,8 +1217,12 @@ theorem tailD_map {f : α → β} {l l' : List α} :
 theorem getLastD_map {f : α → β} {l : List α} {a : α} : (map f l).getLastD (f a) = f (l.getLastD a) := by
   simp
 
-@[simp, grind _=_] theorem map_map {g : β → γ} {f : α → β} {l : List α} :
+@[simp] theorem map_map {g : β → γ} {f : α → β} {l : List α} :
     map g (map f l) = map (g ∘ f) l := by induction l <;> simp_all
+
+grind_pattern map_map => map g (map f l) where
+  g =/= List.reverse
+  f =/= List.reverse
 
 /-! ### filter -/
 
@@ -1428,12 +1432,15 @@ theorem filterMap_eq_filter {p : α → Bool} :
   | nil => rfl
   | cons a l IH => by_cases pa : p a <;> simp [Option.guard, pa, ← IH]
 
-@[grind =]
 theorem filterMap_filterMap {f : α → Option β} {g : β → Option γ} {l : List α} :
     filterMap g (filterMap f l) = filterMap (fun x => (f x).bind g) l := by
   induction l with
   | nil => rfl
   | cons a l IH => cases h : f a <;> simp [filterMap_cons, *]
+
+grind_pattern filterMap_filterMap => filterMap g (filterMap f l) where
+  f =/= some
+  g =/= some
 
 @[grind =]
 theorem map_filterMap {f : α → Option β} {g : β → γ} {l : List α} :
@@ -2631,6 +2638,22 @@ theorem foldr_map_hom {g : α → β} {f : α → α → α} {f' : β → β →
 
 @[simp, grind _=_] theorem foldr_append {f : α → β → β} {b : β} {l l' : List α} :
     (l ++ l').foldr f b = l.foldr f (l'.foldr f b) := by simp [foldr_eq_foldrM, -foldrM_pure]
+
+theorem foldl_flatMap {f : α → List β} {g : γ → β → γ} {l : List α} {init : γ} :
+    (l.flatMap f).foldl g init = l.foldl (fun acc x => (f x).foldl g acc) init := by
+  induction l generalizing init
+  · simp
+  next a l ih =>
+    simp only [flatMap_cons, foldl_cons]
+    rw [foldl_append, ih]
+
+theorem foldr_flatMap {f : α → List β} {g : β → γ → γ} {l : List α} {init : γ} :
+    (l.flatMap f).foldr g init = l.foldr (fun x acc => (f x).foldr g acc) init := by
+  induction l generalizing init
+  · simp
+  next a l ih =>
+    simp only [flatMap_cons, foldr_cons]
+    rw [foldr_append, ih]
 
 @[grind =] theorem foldl_flatten {f : β → α → β} {b : β} {L : List (List α)} :
     (flatten L).foldl f b = L.foldl (fun b l => l.foldl f b) b := by

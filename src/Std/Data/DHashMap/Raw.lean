@@ -301,6 +301,41 @@ If no panic occurs the result is guaranteed to be pointer equal to the key in th
   else default -- will never happen for well-formed inputs
 
 /--
+Checks if a mapping for the given key exists and returns the key-value pair if it does, otherwise `none`.
+The key in the returned pair will be `BEq` to the input `a`.
+-/
+@[inline] def getEntry? [BEq α] [Hashable α] (m : Raw α β) (a : α) : Option ((a : α) × β a) :=
+  if h : 0 < m.buckets.size then
+    Raw₀.getEntry? ⟨m, h⟩ a
+  else none -- will never  happen for well-formed inputs
+
+/--
+Retrieves the key-value pair, whose key matches `a`. Ensures that such a mapping exists by
+requiring a proof of `a ∈ m`. The key in the returned pair will be `BEq` to the input `a`.
+-/
+@[inline] def getEntry [BEq α] [Hashable α] (m : Raw α β) (a : α) (h : a ∈ m) : (a : α) × β a :=
+  Raw₀.getEntry ⟨m, by change dite .. = true at h; split at h <;> simp_all⟩ a
+    (by change dite .. = true at h; split at h <;> simp_all)
+
+/--
+Checks if a mapping for the given key exists and returns the key-value pair if it does, otherwise `fallback`.
+The key in the returned pair will be `BEq` to the input `a`.
+-/
+@[inline] def getEntryD [BEq α] [Hashable α] (m : Raw α β) (a : α) (fallback : (a : α) × β a) : (a : α) × β a :=
+  if h : 0 < m.buckets.size then
+    Raw₀.getEntryD ⟨m, h⟩ a fallback
+  else fallback -- will never happen for well-formed inputs
+
+/--
+Checks if a mapping for the given key exists and returns the key-value pair if it does, otherwise panics.
+The key in the returned pair will be `BEq` to the input `a`.
+-/
+@[inline] def getEntry! [BEq α] [Hashable α] [Inhabited ((a : α) × β a)] (m : Raw α β) (a : α) : (a : α) × β a :=
+  if h : 0 < m.buckets.size then
+    Raw₀.getEntry! ⟨m, h⟩ a
+  else default -- will never happen for well-formed inputs
+
+/--
 Returns `true` if the hash map contains no mappings.
 
 Note that if your `BEq` instance is not reflexive or your `Hashable` instance is not
@@ -452,8 +487,19 @@ only those mappings where the function returns `some` value.
 @[inline] def keysArray (m : Raw α β) : Array α :=
   m.fold (fun acc k _ => acc.push k) (.emptyWithCapacity m.size)
 
+/-- Checks if all elements satisfy the predicate, short-circuiting if a predicate fails. -/
+@[inline] def all (m : Raw α β) (p : (a : α) → β a → Bool) : Bool := Id.run do
+  for a in m do
+    if ¬ p a.1 a.2 then return false
+  return true
+
+/-- Checks if any element satisfies the predicate, short-circuiting if a predicate succeeds. -/
+@[inline] def any (m : Raw α β) (p : (a : α) → β a → Bool) : Bool := Id.run do
+  for a in m do
+    if p a.1 a.2 then return true
+  return false
 /--
-Computes the union of the given hash maps. If a key appears in both maps, the entry contains in
+Computes the union of the given hash maps. If a key appears in both maps, the entry contained in
 the second argument will appear in the result.
 
 This function always merges the smaller map into the larger map, so the expected runtime is
