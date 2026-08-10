@@ -7,13 +7,17 @@ module
 prelude
 public import Lean.Elab.Command
 import Init.Grind.Lint
-import Lean.Meta.Tactic.Grind.EMatchTheorem
-import Lean.EnvExtension
 import Lean.Elab.Tactic.Grind.Config
 import Lean.Meta.Tactic.TryThis
 namespace Lean.Elab.Tactic.Grind
 
 builtin_initialize skipExt : SimplePersistentEnvExtension Name NameSet ←
+  registerSimplePersistentEnvExtension {
+    addEntryFn := (·.insert)
+    addImportedFn := mkStateFromImportedEntries (·.insert) {}
+  }
+
+builtin_initialize skipSuffixExt : SimplePersistentEnvExtension Name NameSet ←
   registerSimplePersistentEnvExtension {
     addEntryFn := (·.insert)
     addImportedFn := mkStateFromImportedEntries (·.insert) {}
@@ -25,22 +29,31 @@ builtin_initialize muteExt : SimplePersistentEnvExtension Name NameSet ←
     addImportedFn := mkStateFromImportedEntries (·.insert) {}
   }
 
-open Command Meta Grind
+open Command Meta Lean.Meta.Grind
 
 def checkEMatchTheorem (declName : Name) : CoreM Unit := do
-  unless (← isEMatchTheorem declName) do
+  unless (← Grind.grindExt.isEMatchTheorem declName) do
     throwError "`{declName}` is not marked with the `@[grind]` attribute for theorem instantiation"
 
 @[builtin_command_elab Lean.Grind.grindLintSkip]
 def elabGrindLintSkip : CommandElab := fun stx => do
-  let `(#grind_lint skip $ids:ident*) := stx | throwUnsupportedSyntax
+  let `(#grind_lint skip $[suffix%$sfx?]? $ids:ident*) := stx | throwUnsupportedSyntax
   liftTermElabM do
-  for id in ids do
-    let declName ← realizeGlobalConstNoOverloadWithInfo id
-    checkEMatchTheorem declName
-    if skipExt.getState (← getEnv) |>.contains declName then
-      throwError "`{declName}` is already in the `#grind_lint` skip set"
-    modifyEnv fun env => skipExt.addEntry env declName
+  if sfx?.isSome then
+    -- Skip by suffix
+    for id in ids do
+      let suffixName := id.getId
+      if skipSuffixExt.getState (← getEnv) |>.contains suffixName then
+        throwError "`{suffixName}` is already in the `#grind_lint` skip suffix set"
+      modifyEnv fun env => skipSuffixExt.addEntry env suffixName
+  else
+    -- Skip by exact name
+    for id in ids do
+      let declName ← realizeGlobalConstNoOverloadWithInfo id
+      checkEMatchTheorem declName
+      if skipExt.getState (← getEnv) |>.contains declName then
+        throwError "`{declName}` is already in the `#grind_lint` skip set"
+      modifyEnv fun env => skipExt.addEntry env declName
 
 @[builtin_command_elab Lean.Grind.grindLintMute]
 def elabGrindLintMute : CommandElab := fun stx => do
@@ -71,15 +84,14 @@ def mkConfig (items : Array (TSyntax `Lean.Parser.Tactic.configItem)) : TermElab
   elabConfigItems defaultConfig items
 
 def mkParams (config : Grind.Config) : MetaM Params := do
-  let params ← Meta.Grind.mkParams config
-  let casesTypes ← Grind.getCasesTypes
-  let mut ematch ← getEMatchTheorems
+  let params ← Meta.Grind.mkDefaultParams config
+  let mut ematch := params.extensions[0]!.ematch
   for declName in muteExt.getState (← getEnv) do
     try
       ematch ← ematch.eraseDecl declName
     catch _ =>
       pure () -- Ignore failures here.
-  return { params with ematch, casesTypes }
+  return { params with extensions[0].ematch := ematch }
 
 /-- Returns the total number of generated instances.  -/
 def sum (cs : PHashMap Grind.Origin Nat) : Nat := Id.run do
@@ -138,13 +150,22 @@ def elabGrindLintInspect : CommandElab := fun stx => liftTermElabM <| withTheRea
         $(⟨stx⟩):command)
       Tactic.TryThis.addSuggestion (header := "Try this to display the actual theorem instances:") stx { suggestion := .tsyntax s }
 
+/-- Check if the last component of `name` ends with the string form of `suff`. -/
+def nameEndsWithSuffix (name suff : Name) : Bool :=
+  match name with
+  | .str _ s => s.endsWith suff.toString
+  | _ => false
+
 def getTheorems (prefixes? : Option (Array Name)) (inModule : Bool) : CoreM (List Name) := do
   let skip := skipExt.getState (← getEnv)
-  let origins := (← getEMatchTheorems).getOrigins
+  let skipSuffixes := skipSuffixExt.getState (← getEnv)
+  let origins := (← Grind.grindExt.getEMatchTheorems).getOrigins
   let env ← getEnv
   return origins.filterMap fun origin => Id.run do
     let .decl declName := origin | return none
     if skip.contains declName then return none
+    -- Check if declName's last component ends with any of the skip suffixes
+    if skipSuffixes.any fun suff => nameEndsWithSuffix declName suff then return none
     let some prefixes := prefixes? | return some declName
     if inModule then
       let some modIdx := env.getModuleIdxFor? declName | return none
@@ -171,10 +192,20 @@ def elabGrindLintCheck : CommandElab := fun stx => liftTermElabM <| withTheReade
   let inModule := m? matches some (some _)
   let decls ← getTheorems prefixes? inModule
   let decls := decls.toArray.qsort Name.lt
+  let mut problematicTheorems := #[]
   for declName in decls do
     try
-      discard <| analyzeEMatchTheorem declName params
+      if (← analyzeEMatchTheorem declName params) then
+        problematicTheorems := problematicTheorems.push declName
     catch e =>
       logError m!"{declName} failed with {e.toMessageData}"
+  if !problematicTheorems.isEmpty then
+    -- Build the "Try this:" suggestion
+    let checkCmd ← PrettyPrinter.ppCategory `command stx
+    let mut suggestion := Format.pretty checkCmd
+    suggestion := suggestion ++ "\n"
+    for declName in problematicTheorems do
+      suggestion := suggestion ++ s!"#grind_lint inspect {declName}\n"
+    Tactic.TryThis.addSuggestion stx { suggestion := .string suggestion }
 
 end Lean.Elab.Tactic.Grind

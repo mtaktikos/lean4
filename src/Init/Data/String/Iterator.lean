@@ -6,7 +6,6 @@ Author: Leonardo de Moura, Mario Carneiro
 module
 
 prelude
-public import Init.Data.String.Basic
 public import Init.Data.String.Modify
 
 /-!
@@ -25,9 +24,9 @@ An iterator over the characters (Unicode code points) in a `String`. Typically c
 `String.iter`.
 
 This is a no-longer-supported legacy API that will be removed in a future release. You should use
-`String.ValidPos` instead, which is similar, but safer. To iterate over a string `s`, start with
-`p : s.startValidPos`, advance it using `p.next`, access the current character using `p.get` and
-check if the position is at the end using `p = s.endValidPos` or `p.IsAtEnd`.
+`String.Pos` instead, which is similar, but safer. To iterate over a string `s`, start with
+`p : s.startPos`, advance it using `p.next`, access the current character using `p.get` and
+check if the position is at the end using `p = s.endPos` or `p.IsAtEnd`.
 
 String iterators pair a string with a valid byte index. This allows efficient character-by-character
 processing of strings while avoiding the need to manually ensure that byte indices are used with the
@@ -57,9 +56,9 @@ structure Iterator where
 /-- Creates an iterator at the beginning of the string.
 
 This is a no-longer-supported legacy API that will be removed in a future release. You should use
-`String.ValidPos` instead, which is similar, but safer. To iterate over a string `s`, start with
-`p : s.startValidPos`, advance it using `p.next`, access the current character using `p.get` and
-check if the position is at the end using `p = s.endValidPos` or `p.IsAtEnd`.
+`String.Pos` instead, which is similar, but safer. To iterate over a string `s`, start with
+`p : s.startPos`, advance it using `p.next`, access the current character using `p.get` and
+check if the position is at the end using `p = s.endPos` or `p.IsAtEnd`.
 -/
 @[inline] def mkIterator (s : String) : Iterator :=
   ⟨s, 0⟩
@@ -95,9 +94,9 @@ def pos := Iterator.i
 Gets the character at the iterator's current position.
 
 This is a no-longer-supported legacy API that will be removed in a future release. You should use
-`String.ValidPos` instead, which is similar, but safer. To iterate over a string `s`, start with
-`p : s.startValidPos`, advance it using `p.next`, access the current character using `p.get` and
-check if the position is at the end using `p = s.endValidPos` or `p.IsAtEnd`.
+`String.Pos` instead, which is similar, but safer. To iterate over a string `s`, start with
+`p : s.startPos`, advance it using `p.next`, access the current character using `p.get` and
+check if the position is at the end using `p = s.endPos` or `p.IsAtEnd`.
 
 A run-time bounds check is performed. Use `String.Iterator.curr'` to avoid redundant bounds checks.
 
@@ -110,9 +109,9 @@ If the position is invalid, returns `(default : Char)`.
 Moves the iterator's position forward by one character, unconditionally.
 
 This is a no-longer-supported legacy API that will be removed in a future release. You should use
-`String.ValidPos` instead, which is similar, but safer. To iterate over a string `s`, start with
-`p : s.startValidPos`, advance it using `p.next`, access the current character using `p.get` and
-check if the position is at the end using `p = s.endValidPos` or `p.IsAtEnd`.
+`String.Pos` instead, which is similar, but safer. To iterate over a string `s`, start with
+`p : s.startPos`, advance it using `p.next`, access the current character using `p.get` and
+check if the position is at the end using `p = s.endPos` or `p.IsAtEnd`.
 
 It is only valid to call this function if the iterator is not at the end of the string (i.e.
 if `Iterator.atEnd` is `false`); otherwise, the resulting iterator will be invalid.
@@ -266,17 +265,18 @@ end Iterator
 
 end String.Legacy
 
-namespace Substring
+namespace Substring.Raw
 
 /--
 Returns an iterator into the underlying string, at the substring's starting position. The ending
 position is discarded, so the iterator alone cannot be used to determine whether its current
 position is within the original substring.
 -/
-@[inline] def toLegacyIterator : Substring → String.Legacy.Iterator
+@[inline] def toLegacyIterator : Substring.Raw → String.Legacy.Iterator
   | ⟨s, b, _⟩ => ⟨s, b⟩
 
-end Substring
+
+end Substring.Raw
 
 instance : Repr String.Legacy.Iterator where
   reprPrec | ⟨s, pos⟩, prec => Repr.addAppParen ("String.Iterator.mk " ++ reprArg s ++ " " ++ reprArg pos) prec
@@ -298,7 +298,7 @@ abbrev String.Iterator.curr := String.Legacy.Iterator.curr
 abbrev String.Iterator.next := String.Legacy.Iterator.next
 @[deprecated String.Legacy.Iterator.hasNext (since := "2025-11-12")]
 abbrev String.Iterator.hasNext := String.Legacy.Iterator.hasNext
-@[deprecated Substring.toLegacyIterator (since := "2025-11-12")]
-abbrev Substring.toIterator := Substring.toLegacyIterator
+@[deprecated Substring.Raw.toLegacyIterator (since := "2025-11-12")]
+abbrev Substring.toIterator := Substring.Raw.toLegacyIterator
 
 end Deprecations

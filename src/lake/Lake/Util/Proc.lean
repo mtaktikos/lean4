@@ -22,22 +22,28 @@ public def mkCmdLog (args : IO.Process.SpawnArgs) : String :=
   [Monad m] (out : IO.Process.Output) (log : String → m PUnit)
 : m Unit := do
   unless out.stdout.isEmpty do
-    log s!"stdout:\n{out.stdout.trim}"
+    log s!"stdout:\n{out.stdout.trimAscii}"
   unless out.stderr.isEmpty do
-    log s!"stderr:\n{out.stderr.trim}"
+    log s!"stderr:\n{out.stderr.trimAscii}"
 
-@[inline] public def rawProc (args : IO.Process.SpawnArgs) (quiet := false) : LogIO IO.Process.Output := do
+@[inline] public def rawProc
+  (args : IO.Process.SpawnArgs) (quiet := false) (input? : Option String := none)
+: LogIO IO.Process.Output := do
   withLogErrorPos do
   unless quiet do logVerbose (mkCmdLog args)
-  match (← IO.Process.output args |>.toBaseIO) with
+  match (← IO.Process.output args input? |>.toBaseIO) with
   | .ok out => return out
   | .error err => error s!"failed to execute '{args.cmd}': {err}"
 
-public def proc (args : IO.Process.SpawnArgs) (quiet := false) : LogIO Unit := do
+public def proc
+  (args : IO.Process.SpawnArgs) (quiet := false) (input? : Option String := none)
+: LogIO Unit := do
   withLogErrorPos do
-  let out ← rawProc args
-  logOutput out (if quiet then logVerbose else logInfo)
-  if out.exitCode ≠ 0 then
+  let out ← rawProc args (input? := input?)
+  if out.exitCode = 0 then
+    logOutput out (if quiet then logVerbose else logInfo)
+  else
+    logOutput out logInfo
     error s!"external command '{args.cmd}' exited with code {out.exitCode}"
 
 public def captureProc' (args : IO.Process.SpawnArgs) : LogIO (IO.Process.Output) := do
@@ -50,13 +56,13 @@ public def captureProc' (args : IO.Process.SpawnArgs) : LogIO (IO.Process.Output
     logError s!"external command '{args.cmd}' exited with code {out.exitCode}"
 
 @[inline] public def captureProc (args : IO.Process.SpawnArgs) : LogIO String := do
-  return (← captureProc' args).stdout.trim -- remove, e.g., newline at end
+  return (← captureProc' args).stdout.trimAscii.copy -- remove, e.g., newline at end
 
 public def captureProc? (args : IO.Process.SpawnArgs) : BaseIO (Option String) := do
   EIO.catchExceptions (h := fun _ => pure none) do
     let out ← IO.Process.output args
     if out.exitCode = 0 then
-      return some out.stdout.trim -- remove, e.g., newline at end
+      return some out.stdout.trimAscii.copy -- remove, e.g., newline at end
     else
       return none
 

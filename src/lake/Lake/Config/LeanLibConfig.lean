@@ -12,6 +12,7 @@ public import Lake.Build.Facets
 public import Lake.Config.LeanConfig
 public import Lake.Config.Glob
 meta import all Lake.Config.Meta
+import Lake.Config.Meta
 
 namespace Lake
 open Lean System
@@ -49,7 +50,7 @@ public configuration LeanLibConfig (name : Name) extends LeanConfig where
   Used as a base for the file names of its static and dynamic binaries.
   Defaults to the mangled name of the target.
   -/
-  libName : String := name.mangle ""
+  libName : String := ""
 
   /--
   Whether static and shared binaries of this library should be prefixed with `lib` on Windows.
@@ -82,7 +83,7 @@ public configuration LeanLibConfig (name : Name) extends LeanConfig where
 
   /--
   An `Array` of library facets to build on a bare `lake build` of the library.
-  For example, `#[LeanLib.sharedLib]` will build the shared library facet.
+  For example, `#[LeanLib.sharedFacet]` will build the shared library facet.
   -/
   defaultFacets : Array Name := #[LeanLib.leanArtsFacet]
 

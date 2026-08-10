@@ -20,9 +20,12 @@ public import Init.Grind.Ext
 public import Init.Grind.ToInt
 public import Init.Grind.ToIntLemmas
 public import Init.Grind.Attr
-public import Init.Data.Int.OfNat -- This may not have otherwise been imported, breaking `grind` proofs.
 public import Init.Grind.AC
 public import Init.Grind.Injective
 public import Init.Grind.Order
 public import Init.Grind.Interactive
 public import Init.Grind.Lint
+public import Init.Grind.Annotated
+public import Init.Grind.FieldNormNum
+public import Init.Grind.Config
+public import Init.Grind.Homo

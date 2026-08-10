@@ -6,9 +6,12 @@ Authors: Leonardo de Moura
 module
 
 prelude
-public import Init.Data.Nat.Lemmas
 public import Init.Data.Bool
 import Init.LawfulBEqTactics
+public import Init.Data.RArray
+import Init.Classical
+
+open Internal
 
 @[expose] public section
 

@@ -7,8 +7,6 @@ module
 prelude
 public import Lean.Meta.Tactic.Grind.Types
 import Init.Grind.Util
-import Lean.Meta.Tactic.Grind.Proof
-import Lean.Meta.Tactic.Grind.MatchCond
 import Lean.Meta.Tactic.Grind.Util
 namespace Lean.Meta.Grind
 /-!
@@ -65,9 +63,13 @@ def checkMatchCondParent (e : Expr) (parent : Expr) : GoalM Bool := do
   return false
 
 def checkParents (e : Expr) : GoalM Unit := do
+  -- **Note**: We skip `funCC` parents because the parent-child relationship uses
+  -- one-level decomposition (`appFn!`/`appArg!`) rather than full `getAppArgs`/`getAppFn`.
   if (← isRoot e) then
     for parent in (← getParents e).elems do
-      if isMatchCond parent then
+      if parent.isApp && (← useFunCC parent) then
+        pure ()
+      else if isMatchCond parent then
         unless (← checkMatchCondParent e parent) do
           throwError "e: {e}, parent: {parent}"
         assert! (← checkMatchCondParent e parent)
@@ -89,9 +91,9 @@ def checkParents (e : Expr) : GoalM Unit := do
           unless (← checkChild e parent.getAppFn) do
             throwError "e: {e}, parent: {parent}"
           assert! (← checkChild e parent.getAppFn)
-  else
-    -- All the parents are stored in the root of the equivalence class.
-    assert! (← getParents e).isEmpty
+    else
+      -- All the parents are stored in the root of the equivalence class.
+      assert! (← getParents e).isEmpty
 
 def checkPtrEqImpliesStructEq : GoalM Unit := do
   let exprs ← getExprs
@@ -117,7 +119,7 @@ def checkProofs : GoalM Unit := do
 
 /-- Checks invariants if `grind.debug` is enabled. -/
 public def checkInvariants (expensive := false) : GoalM Unit := do
-  if grind.debug.get (← getOptions) then
+  if (← isDebugEnabled) then
     for e in (← getExprs) do
       let node ← getENode e
       checkParents node.self

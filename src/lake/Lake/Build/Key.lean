@@ -8,8 +8,8 @@ module
 prelude
 public import Init.Data.Order
 import Lake.Util.Name
-import Lake.Config.Kinds
-import Init.Data.String.TakeDrop
+import Init.Data.String.Search
+import Init.Data.Iterators.Consumers
 
 namespace Lake
 open Lean (Name)
@@ -52,7 +52,7 @@ Uses the same syntax as the `lake build` / `lake query` CLI.
 public def parse (s : String) : Except String PartialBuildKey := do
   if s.isEmpty then
     throw "ill-formed target: empty string"
-  match s.splitOn ":" with
+  match s.split ':' |>.toStringList with
   | target :: facets =>
     let target ← parseTarget target
     facets.foldlM (init := target) fun target facet => do
@@ -65,7 +65,7 @@ public def parse (s : String) : Except String PartialBuildKey := do
     unreachable!
 where
   parseTarget s := do
-    match s.splitOn "/" with
+    match s.split '/' |>.toList with
     | [target] =>
       if target.isEmpty then
         return .package .anonymous
@@ -74,9 +74,13 @@ where
         if pkg.isEmpty then
           return .package .anonymous
         else
-          return .package (stringToLegalOrSimpleName pkg)
+          return .package (stringToLegalOrSimpleName pkg.copy)
       else if target.startsWith "+" then
-        return .module (stringToLegalOrSimpleName (target.drop 1))
+        let mod := target.drop 1
+        if mod.isEmpty then
+          throw "ill-formed target: expected module name after '+'"
+        else
+          return .module (stringToLegalOrSimpleName mod.copy)
       else
         parsePackageTarget .anonymous target
     | [pkg, target] =>
@@ -84,25 +88,31 @@ where
       if pkg.isEmpty then
         parsePackageTarget .anonymous target
       else
-        parsePackageTarget (stringToLegalOrSimpleName pkg) target
+        parsePackageTarget (stringToLegalOrSimpleName pkg.copy) target
     | _ =>
       throw "ill-formed target: too many '/'"
   parsePackageTarget pkg target :=
     if target.isEmpty then
       throw s!"ill-formed target: default package targets are not supported in partial build keys"
     else if target.startsWith "+" then
-      let target := target.drop 1 |> stringToLegalOrSimpleName
+      let target := target.drop 1 |>.copy |> stringToLegalOrSimpleName
       return .packageModule pkg target
     else
-      let target := stringToLegalOrSimpleName target
+      let target := stringToLegalOrSimpleName target.copy
       return .packageTarget pkg target
 
 public def toString : (self : PartialBuildKey) → String
 | .module m => s!"+{m}"
-| .package p => if p.isAnonymous then "" else s!"@{p}"
-| .packageModule p m => if p.isAnonymous then s!"+{m}" else s!"{p}/+{m}"
-| .packageTarget p t => if p.isAnonymous then t.toString else s!"{p}/{t}"
+| .package p => match (getPkgName p) with | .anonymous => "" | p => s!"@{p}"
+| .packageModule p m => match (getPkgName p) with | .anonymous => s!"+{m}" | p => s!"{p}/+{m}"
+| .packageTarget p t => match (getPkgName p) with | .anonymous => t.toString | p => s!"{p}/{t}"
 | .facet t f => if f.isAnonymous then toString t else s!"{toString t}:{f}"
+where
+  /-- Utility for extracting a package's base name from its key name. -/
+  getPkgName (p : Name) : Name :=
+    match p with
+    | .anonymous | .num .anonymous _ => .anonymous
+    | .num p _ | p => p
 
 public instance : ToString PartialBuildKey := ⟨PartialBuildKey.toString⟩
 
@@ -119,7 +129,7 @@ namespace BuildKey
 @[match_pattern] public abbrev packageModuleFacet (package module facet : Name) : BuildKey :=
   .facet (.packageModule package module) facet
 
-attribute [deprecated packageModuleFacet (since := "2025-11-13")] moduleFacet
+attribute [deprecated packageModuleFacet +typeChanged (since := "2025-11-13")] moduleFacet
 
 @[match_pattern] public abbrev targetFacet (package target facet : Name) : BuildKey :=
   .facet (.packageTarget package target) facet
@@ -129,17 +139,17 @@ attribute [deprecated packageModuleFacet (since := "2025-11-13")] moduleFacet
 
 public def toString : (self : BuildKey) → String
 | module m => s!"+{m}"
-| package p => s!"@{p}"
-| packageModule p m => s!"{p}/+{m}"
-| packageTarget p t => s!"{p}/{t}"
+| package p => s!"@{p.getPrefix}"
+| packageModule p m => s!"{p.getPrefix}/+{m}"
+| packageTarget p t => s!"{p.getPrefix}/{t}"
 | facet t f => s!"{toString t}:{Name.eraseHead f}"
 
 /-- Like the default `toString`, but without disambiguation markers. -/
 public def toSimpleString : (self : BuildKey) → String
 | module m => s!"{m}"
-| package p => s!"{p}"
-| packageModule p m => s!"{p}/{m}"
-| packageTarget p t => s!"{p}/{t}"
+| package p => s!"{p.getPrefix}"
+| packageModule p m => s!"{p.getPrefix}/{m}"
+| packageTarget p t => s!"{p.getPrefix}/{t}"
 | facet t f => s!"{toSimpleString t}:{Name.eraseHead f}"
 
 public instance : ToString BuildKey := ⟨(·.toString)⟩
@@ -234,5 +244,3 @@ public instance : Std.LawfulEqCmp quickCmp where
     · simp only [quickCmp]
       split <;> simp_all
     · simp_all [quickCmp]
-
-attribute [deprecated packageModule (since := "2025-11-13")] module

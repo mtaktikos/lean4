@@ -6,8 +6,12 @@ Authors: Kim Morrison
 module
 
 prelude
-public import Init.Data.Vector.Lemmas
-public import Init.Data.Array.Extract
+public import Init.Data.Vector.Basic
+import Init.ByCases
+import Init.Data.Array.Bootstrap
+import Init.Data.Array.Extract
+import Init.Data.Vector.Lemmas
+import Init.Omega
 
 public section
 
@@ -90,9 +94,9 @@ theorem getElem?_extract_of_succ {xs : Vector α n} {j : Nat} :
   simp only [Nat.sub_zero]
   erw [getElem?_extract] -- Why does this not fire by `simp` or `rw`?
   by_cases h : j < n
-  · rw [if_pos (by omega)]
+  · rw [ite_eq_left (by omega)]
     simp
-  · rw [if_neg (by omega)]
+  · rw [ite_eq_right (by omega)]
     simp_all
 
 @[simp, grind =] theorem extract_extract {xs : Vector α n} {i j k l : Nat} :
@@ -176,7 +180,6 @@ theorem set_eq_push_extract_append_extract {xs : Vector α n} {i : Nat} (h : i <
   rcases xs with ⟨as, rfl⟩
   simp [Array.set_eq_push_extract_append_extract]
 
-@[grind =]
 theorem extract_reverse {xs : Vector α n} {i j : Nat} :
     xs.reverse.extract i j = (xs.extract (n - j) (n - i)).reverse.cast (by omega) := by
   ext i h
@@ -184,10 +187,17 @@ theorem extract_reverse {xs : Vector α n} {i j : Nat} :
   congr 1
   omega
 
-@[grind =]
+grind_pattern extract_reverse => xs.reverse.extract i j where
+  i =/= n - _
+  j =/= n - _
+
 theorem reverse_extract {xs : Vector α n} {i j : Nat} :
     (xs.extract i j).reverse = (xs.reverse.extract (n - j) (n - i)).cast (by omega) := by
   rcases xs with ⟨xs, rfl⟩
   simp [Array.reverse_extract]
+
+grind_pattern reverse_extract => (xs.extract i j).reverse where
+  i =/= n - _
+  j =/= n - _
 
 end Vector

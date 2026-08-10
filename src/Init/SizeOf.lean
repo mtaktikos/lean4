@@ -6,7 +6,8 @@ Authors: Leonardo de Moura, Mario Carneiro
 module
 
 prelude
-public import Init.Tactics
+public import Init.Notation
+import Init.Tactics
 
 public section
 set_option linter.missingDocs true -- keep it documented
@@ -88,7 +89,7 @@ deriving instance SizeOf for Array
 deriving instance SizeOf for ByteArray
 deriving instance SizeOf for String
 deriving instance SizeOf for String.Pos.Raw
-deriving instance SizeOf for Substring
+deriving instance SizeOf for Substring.Raw
 deriving instance SizeOf for Except
 deriving instance SizeOf for EStateM.Result
 

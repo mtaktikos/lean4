@@ -10,7 +10,9 @@ public import Lean.Compiler.FFI
 public import Lake.Config.Dynlib
 public import Lake.Config.Defaults
 public import Lake.Util.NativeLib
+import Init.Data.UInt.Lemmas
 import Init.Data.String.Modify
+import Init.System.Platform
 
 open System Lean.Compiler.FFI
 
@@ -56,9 +58,17 @@ where
 public def leanExe (sysroot : FilePath) :=
   sysroot / "bin" / "lean" |>.addExtension FilePath.exeExtension
 
+/-- Standard path of `leanir` in a Lean installation. -/
+public def leanirExe (sysroot : FilePath) :=
+  sysroot / "bin" / "leanir" |>.addExtension FilePath.exeExtension
+
 /-- Standard path of `leanc` in a Lean installation. -/
 public def leancExe (sysroot : FilePath) :=
   sysroot / "bin" / "leanc" |>.addExtension FilePath.exeExtension
+
+/-- Standard path of `leantar` in a Lean installation. -/
+public def leantarExe (sysroot : FilePath) :=
+  sysroot / "bin" / "leantar" |>.addExtension FilePath.exeExtension
 
 /-- Standard path of `llvm-ar` in a Lean installation. -/
 public def leanArExe (sysroot : FilePath) :=
@@ -75,11 +85,38 @@ public def leanSharedLibDir (sysroot : FilePath) :=
   else
     sysroot / "lib" / "lean"
 
+/-- The entire set of core shared libraries in a Lean installation. -/
+public def leanSharedDynlibs (sysroot : FilePath) : Array Dynlib :=
+  -- libLake_shared links against the split libs on all platforms,
+  -- so they must be included in the bundle even when they are empty stubs.
+  if System.Platform.isWindows then libs winLib else libs unixLib
+where
+  @[inline] winLib name deps :=
+    -- On Windows, libraries are in `bin` and link to one another
+    {name, path := sysroot / "bin" / s!"lib{name}.dll", deps}
+  @[inline] unixLib name _ :=
+     -- On Unix, libraries are in `lean/lib` and are independent
+    {name, path := sysroot / "lib" / "lean" / s!"lib{name}.{sharedLibExt}"}
+  @[inline] libs f :=
+    let init := f "Init_shared" #[]
+    let lean1 := f "leanshared_1" #[init]
+    let lean2 := f  "leanshared_2" #[lean1, init]
+    let lean := f "leanshared" #[lean2, lean1, init]
+    #[lean, lean2, lean1, init]
+
+theorem size_leanSharedDynlibs_pos : 0 < (leanSharedDynlibs sysroot).size := by
+  unfold leanSharedDynlibs; split <;> simp [leanSharedDynlibs.libs]
+
+/-- The primary core shared library (i.e., `libleanshared`) in a Lean installation. -/
+public def leanSharedDynlib (sysroot : FilePath) : Dynlib :=
+  (leanSharedDynlibs sysroot)[(0 : USize)]'size_leanSharedDynlibs_pos
+
 /-- `libleanshared` file name. -/
-public def leanSharedLib  :=
+public def leanSharedLib : FilePath :=
   FilePath.addExtension "libleanshared" sharedLibExt
 
 /-- `Init` shared library file name. -/
+@[deprecated "leanSharedDynlibs" (since := "2026-06-29")]
 public def initSharedLib : FilePath :=
   FilePath.addExtension "libInit_shared" sharedLibExt
 
@@ -93,9 +130,11 @@ public structure LeanInstall where
   systemLibDir := sysroot / "lib"
   binDir := sysroot / "bin"
   lean := leanExe sysroot
+  leanir := leanirExe sysroot
   leanc := leancExe sysroot
-  sharedLib := leanSharedLibDir sysroot / leanSharedLib
-  initSharedLib := leanSharedLibDir sysroot / initSharedLib
+  leantar := leantarExe sysroot
+  sharedDynlibs := leanSharedDynlibs sysroot
+  sharedDynlib := leanSharedDynlib sysroot
   ar : FilePath := "ar"
   cc : FilePath := "cc"
   customCc : Bool := true
@@ -106,6 +145,13 @@ public structure LeanInstall where
   ccLinkStaticFlags := linkStaticFlags
   ccLinkSharedFlags := linkSharedFlags
   deriving Inhabited, Repr
+
+@[inline] public def LeanInstall.sharedLib (self : LeanInstall) : FilePath :=
+  self.sharedDynlib.path
+
+@[deprecated "sharedDynlibs" (since := "2026-06-29")]
+public nonrec def LeanInstall.initSharedLib (self : LeanInstall) : FilePath :=
+  leanSharedLibDir self.sysroot / initSharedLib
 
 /--
 A `SearchPath` including the Lean installation's shared library directories
@@ -151,11 +197,16 @@ public def LakeInstall.ofLean (lean : LeanInstall) : LakeInstall where
   srcDir := lean.srcDir / "lake"
   binDir := lean.binDir
   libDir := lean.leanLibDir
-  sharedDynlib :=
-    let lib := s!"libLake_shared.{sharedLibExt}"
-    let path := if Platform.isWindows then lean.binDir / lib else lean.leanLibDir / lib
-    {name := "Lake_shared", path}
   lake := lean.binDir / lakeExe
+  sharedDynlib := {
+    name := "Lake_shared"
+    deps := lean.sharedDynlibs
+    path :=
+      if Platform.isWindows then
+        lean.binDir / "libLake_shared.dll"
+      else
+        lean.leanLibDir / s!"libLake_shared.{sharedLibExt}"
+    }
 
 /-! ## Detection Functions -/
 
@@ -166,7 +217,7 @@ environment variables. If `ELAN` is set but empty, Elan is considered disabled.
 public def findElanInstall? : BaseIO (Option ElanInstall) := do
   if let some home ← IO.getEnv "ELAN_HOME" then
     let elan := (← IO.getEnv "ELAN").getD "elan"
-    if elan.trim.isEmpty then
+    if elan.trimAscii.isEmpty then
       return none
     else
       return some {elan, home}
@@ -184,7 +235,7 @@ public def findLeanSysroot? (lean := "lean") : BaseIO (Option FilePath) := do
       args := #["--print-prefix"]
     }
     if out.exitCode == 0 then
-      pure <| some <| FilePath.mk <| out.stdout.trim
+      pure <| some <| FilePath.mk <| out.stdout.trimAscii.copy
     else
       pure <| none
   act.catchExceptions fun _ => pure none
@@ -234,7 +285,7 @@ where
         cmd := leanExe sysroot |>.toString,
         args := #["--githash"]
       }
-      return out.stdout.trim
+      return out.stdout.trimAscii.copy
   findAr := do
     if let some ar ← IO.getEnv "LEAN_AR" then
       return FilePath.mk ar
@@ -322,7 +373,7 @@ public def findLeanInstall? : BaseIO (Option LeanInstall) := do
     return some <| ← LeanInstall.get sysroot
   let lean ← do
     if let some lean ← IO.getEnv "LEAN" then
-      if lean.trim.isEmpty then
+      if lean.trimAscii.isEmpty then
         return none
       else
         pure lean

@@ -6,8 +6,9 @@ Authors: Mac Malone
 module
 
 prelude
-import Init.Data.Array.Basic
 public import Init.Data.String.TakeDrop
+public import Init.Data.String.Search
+public import Init.Data.String.Length
 
 namespace Lake
 
@@ -17,8 +18,7 @@ Defines the abstract CLI interface for Lake.
 
 /-! # Types -/
 
-@[expose]  -- for codegen
-public def ArgList := List String
+public abbrev ArgList := List String
 
 @[inline] public def ArgList.mk (args : List String) : ArgList :=
   args
@@ -69,15 +69,15 @@ variable [Monad m] [MonadStateOf ArgList m]
 
 /-- Process a short option of the form `-x=arg`. -/
 @[inline] public def shortOptionWithEq (handle : Char → m α) (opt : String) : m α := do
-  consArg (opt.drop 3); handle (String.Pos.Raw.get opt ⟨1⟩)
+  consArg (opt.drop 3).copy; handle (String.Pos.Raw.get opt ⟨1⟩)
 
 /-- Process a short option of the form `"-x arg"`. -/
 @[inline] public def shortOptionWithSpace (handle : Char → m α) (opt : String) : m α := do
-  consArg <| opt.drop 2 |>.trimLeft; handle (String.Pos.Raw.get opt ⟨1⟩)
+  consArg <| opt.drop 2 |>.trimAsciiStart |>.copy; handle (String.Pos.Raw.get opt ⟨1⟩)
 
 /-- Process a short option of the form `-xarg`. -/
 @[inline] public def shortOptionWithArg (handle : Char → m α) (opt : String) : m α := do
-  consArg (opt.drop 2); handle (String.Pos.Raw.get opt ⟨1⟩)
+  consArg (opt.drop 2).copy; handle (String.Pos.Raw.get opt ⟨1⟩)
 
 /-- Process a multiple short options grouped together (ex. `-xyz` as `x`, `y`, `z`). -/
 @[inline] public def multiShortOption (handle : Char → m PUnit) (opt : String) : m PUnit := do
@@ -96,21 +96,21 @@ variable [Monad m] [MonadStateOf ArgList m]
 
 /-- Splits a long option of the form `"--long foo bar"` into `--long` and `"foo bar"`. -/
 @[inline] public def longOptionOrSpace (handle : String → m α) (opt : String) : m α :=
-  let pos := opt.posOf ' '
-  if pos = opt.rawEndPos then
+  let pos := opt.find ' '
+  if h : pos = opt.endPos then
     handle opt
   else do
-    consArg <| (pos.next opt).extract opt opt.rawEndPos
-    handle <| String.Pos.Raw.extract opt 0 pos
+    consArg <| opt.extract (pos.next h) opt.endPos
+    handle <| opt.extract opt.startPos pos
 
 /-- Splits a long option of the form `--long=arg` into `--long` and `arg`. -/
 @[inline] public def longOptionOrEq (handle : String → m α) (opt : String) : m α :=
-  let pos := opt.posOf '='
-  if pos = opt.rawEndPos then
+  let pos := opt.find '='
+  if h : pos = opt.endPos then
     handle opt
   else do
-    consArg <| (pos.next opt).extract opt opt.rawEndPos
-    handle <| String.Pos.Raw.extract opt 0 pos
+    consArg <| opt.extract (pos.next h) opt.endPos
+    handle <| opt.extract opt.startPos pos
 
 /-- Process a long option  of the form `--long`, `--long=arg`, `"--long arg"`. -/
 @[inline] public def longOption (handle : String → m α) : String → m α :=
@@ -121,7 +121,7 @@ variable [Monad m] [MonadStateOf ArgList m]
   (shortHandle : Char → m α) (longHandle : String → m α)
   (opt : String)
 : m α :=
-  if opt.length == 2 then -- `-x`
+  if opt.chars.length == 2 then -- `-x`
     shortHandle (String.Pos.Raw.get opt ⟨1⟩)
   else -- `-c(.+)`
     match String.Pos.Raw.get opt ⟨2⟩ with
@@ -148,7 +148,7 @@ public def processLeadingOption (handle : String → m PUnit) : m PUnit := do
   match (← getArgs) with
   | [] => pure ()
   | arg :: args =>
-    if arg.length > 1 && String.Pos.Raw.get arg 0 == '-' then -- `-(.+)`
+    if arg.chars.length > 1 && String.Pos.Raw.get arg 0 == '-' then -- `-(.+)`
       setArgs args
       handle arg
 
@@ -158,7 +158,7 @@ Consumes empty leading arguments in the argument list.
 -/
 public partial def processLeadingOptions (handle : String → m PUnit) : m PUnit := do
   if let arg :: args ← getArgs then
-    let len := arg.length
+    let len := arg.chars.length
     if len > 1 && String.Pos.Raw.get arg 0 == '-' then -- `-(.+)`
       setArgs args
       handle arg
@@ -172,7 +172,7 @@ public partial def collectArgs
   (option : String → m PUnit) (args : Array String := #[])
 : m (Array String) := do
   if let some arg ← takeArg? then
-    let len := arg.length
+    let len := arg.chars.length
     if len > 1 && String.Pos.Raw.get arg 0 == '-' then -- `-(.+)`
       option arg
       collectArgs option args

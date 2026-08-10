@@ -8,6 +8,7 @@ module
 prelude
 public import Std.Data.ExtTreeMap.Lemmas
 public import Std.Data.ExtTreeSet.Basic
+public import Std.Internal.ForIn.Basic
 
 @[expose] public section
 
@@ -107,6 +108,8 @@ theorem contains_insert_self [TransCmp cmp] {k : α} :
     (t.insert k).contains k :=
   ExtTreeMap.contains_insertIfNew_self
 
+theorem mem_of_get_eq [TransCmp cmp] {k v : α} {w} (_ : t.get k w = v) : k ∈ t := w
+
 theorem mem_insert_self [TransCmp cmp] {k : α} :
     k ∈ t.insert k :=
   ExtTreeMap.mem_insertIfNew_self
@@ -155,11 +158,11 @@ theorem erase_empty [TransCmp cmp] {k : α} : (∅ : ExtTreeSet α cmp).erase k 
 @[simp, grind =]
 theorem erase_eq_empty_iff [TransCmp cmp] {k : α} :
     t.erase k = ∅ ↔ t = ∅ ∨ (t.size = 1 ∧ k ∈ t) := by
-  simpa only [ext_iff] using ExtTreeMap.erase_eq_empty_iff
+  simpa only [ext_iff] using! ExtTreeMap.erase_eq_empty_iff
 
 theorem eq_empty_iff_erase_eq_empty_and_not_mem [TransCmp cmp] (k : α) :
     t = ∅ ↔ t.erase k = ∅ ∧ ¬k ∈ t := by
-  simpa only [ext_iff] using ExtTreeMap.eq_empty_iff_erase_eq_empty_and_not_mem k
+  simpa only [ext_iff] using! ExtTreeMap.eq_empty_iff_erase_eq_empty_and_not_mem k
 
 theorem ne_empty_of_erase_ne_empty [TransCmp cmp] {k : α} (h : t.erase k ≠ ∅) : t ≠ ∅ := by
   simp_all
@@ -574,6 +577,272 @@ theorem isEmpty_union [TransCmp cmp] :
 
 end Union
 
+section Inter
+
+variable {t₁ t₂ : ExtTreeSet α cmp}
+
+@[simp]
+theorem inter_eq [TransCmp cmp] : t₁.inter t₂ = t₁ ∩ t₂ := by
+  simp only [Inter.inter]
+
+/- contains -/
+@[simp]
+theorem contains_inter [TransCmp cmp] {k : α} :
+    (t₁ ∩ t₂).contains k = (t₁.contains k && t₂.contains k) :=
+  ExtTreeMap.contains_inter
+
+/- mem -/
+@[simp]
+theorem mem_inter_iff [TransCmp cmp] {k : α} :
+    k ∈ t₁ ∩ t₂ ↔ k ∈ t₁ ∧ k ∈ t₂ :=
+  ExtTreeMap.mem_inter_iff
+
+theorem not_mem_inter_of_not_mem_left [TransCmp cmp] {k : α}
+    (not_mem : k ∉ t₁) :
+    k ∉ t₁ ∩ t₂ :=
+  ExtTreeMap.not_mem_inter_of_not_mem_left not_mem
+
+theorem not_mem_inter_of_not_mem_right [TransCmp cmp] {k : α}
+    (not_mem : k ∉ t₂) :
+    k ∉ t₁ ∩ t₂ :=
+  ExtTreeMap.not_mem_inter_of_not_mem_right not_mem
+
+/- get? -/
+theorem get?_inter [TransCmp cmp] {k : α} :
+    (t₁ ∩ t₂).get? k =
+    if k ∈ t₂ then t₁.get? k else none :=
+  ExtTreeMap.getKey?_inter
+
+theorem get?_inter_of_mem_right [TransCmp cmp]
+    {k : α} (mem : k ∈ t₂) :
+    (t₁ ∩ t₂).get? k = t₁.get? k :=
+  ExtTreeMap.getKey?_inter_of_mem_right mem
+
+theorem get?_inter_of_not_mem_left [TransCmp cmp]
+    {k : α} (not_mem : k ∉ t₁) :
+    (t₁ ∩ t₂).get? k = none :=
+  ExtTreeMap.getKey?_inter_of_not_mem_left not_mem
+
+theorem get?_inter_of_not_mem_right [TransCmp cmp]
+    {k : α} (not_mem : k ∉ t₂) :
+    (t₁ ∩ t₂).get? k = none :=
+  ExtTreeMap.getKey?_inter_of_not_mem_right not_mem
+
+/- get -/
+@[simp]
+theorem get_inter [TransCmp cmp]
+    {k : α} {h_mem : k ∈ t₁ ∩ t₂} :
+    (t₁ ∩ t₂).get k h_mem =
+    t₁.get k (mem_inter_iff.1 h_mem).1 :=
+  ExtTreeMap.getKey_inter
+
+/- getD -/
+theorem getD_inter [TransCmp cmp] {k fallback : α} :
+    (t₁ ∩ t₂).getD k fallback =
+    if k ∈ t₂ then t₁.getD k fallback else fallback :=
+  ExtTreeMap.getKeyD_inter
+
+theorem getD_inter_of_mem_right [TransCmp cmp]
+    {k fallback : α} (mem : k ∈ t₂) :
+    (t₁ ∩ t₂).getD k fallback = t₁.getD k fallback :=
+  ExtTreeMap.getKeyD_inter_of_mem_right mem
+
+theorem getD_inter_of_not_mem_right [TransCmp cmp]
+    {k fallback : α} (not_mem : k ∉ t₂) :
+    (t₁ ∩ t₂).getD k fallback = fallback :=
+  ExtTreeMap.getKeyD_inter_of_not_mem_right not_mem
+
+theorem getD_inter_of_not_mem_left [TransCmp cmp]
+    {k fallback : α} (not_mem : k ∉ t₁) :
+    (t₁ ∩ t₂).getD k fallback = fallback :=
+  ExtTreeMap.getKeyD_inter_of_not_mem_left not_mem
+
+/- get! -/
+theorem get!_inter [TransCmp cmp] [Inhabited α] {k : α} :
+    (t₁ ∩ t₂).get! k =
+    if k ∈ t₂ then t₁.get! k else default :=
+  ExtTreeMap.getKey!_inter
+
+theorem get!_inter_of_mem_right [TransCmp cmp] [Inhabited α]
+    {k : α} (mem : k ∈ t₂) :
+    (t₁ ∩ t₂).get! k = t₁.get! k :=
+  ExtTreeMap.getKey!_inter_of_mem_right mem
+
+theorem get!_inter_of_not_mem_right [TransCmp cmp] [Inhabited α]
+    {k : α} (not_mem : k ∉ t₂) :
+    (t₁ ∩ t₂).get! k = default :=
+  ExtTreeMap.getKey!_inter_of_not_mem_right not_mem
+
+theorem get!_inter_of_not_mem_left [TransCmp cmp] [Inhabited α]
+    {k : α} (not_mem : k ∉ t₁) :
+    (t₁ ∩ t₂).get! k = default :=
+  ExtTreeMap.getKey!_inter_of_not_mem_left not_mem
+
+/- size -/
+theorem size_inter_le_size_left [TransCmp cmp] :
+    (t₁ ∩ t₂).size ≤ t₁.size :=
+  ExtTreeMap.size_inter_le_size_left
+
+theorem size_inter_le_size_right [TransCmp cmp] :
+    (t₁ ∩ t₂).size ≤ t₂.size :=
+  ExtTreeMap.size_inter_le_size_right
+
+theorem size_inter_eq_size_left [TransCmp cmp]
+    (h : ∀ (a : α), a ∈ t₁ → a ∈ t₂) :
+    (t₁ ∩ t₂).size = t₁.size :=
+  ExtTreeMap.size_inter_eq_size_left h
+
+theorem size_inter_eq_size_right [TransCmp cmp]
+    (h : ∀ (a : α), a ∈ t₂ → a ∈ t₁) :
+    (t₁ ∩ t₂).size = t₂.size :=
+  ExtTreeMap.size_inter_eq_size_right h
+
+theorem size_add_size_eq_size_union_add_size_inter [TransCmp cmp] :
+    t₁.size + t₂.size = (t₁ ∪ t₂).size + (t₁ ∩ t₂).size :=
+  ExtTreeMap.size_add_size_eq_size_union_add_size_inter
+
+/- isEmpty -/
+@[simp]
+theorem isEmpty_inter_left [TransCmp cmp] (h : t₁.isEmpty) :
+    (t₁ ∩ t₂).isEmpty = true :=
+  ExtTreeMap.isEmpty_inter_left h
+
+@[simp]
+theorem isEmpty_inter_right [TransCmp cmp] (h : t₂.isEmpty) :
+    (t₁ ∩ t₂).isEmpty = true :=
+  ExtTreeMap.isEmpty_inter_right h
+
+theorem isEmpty_inter_iff [TransCmp cmp] :
+    (t₁ ∩ t₂).isEmpty ↔ ∀ k, k ∈ t₁ → k ∉ t₂ :=
+  ExtTreeMap.isEmpty_inter_iff
+
+end Inter
+
+section Diff
+
+variable {t₁ t₂ : ExtTreeSet α cmp}
+
+@[simp]
+theorem diff_eq [TransCmp cmp] : t₁.diff t₂ = t₁ \ t₂ := by
+  simp only [SDiff.sdiff]
+
+/- contains -/
+@[simp]
+theorem contains_diff [TransCmp cmp] {k : α} :
+    (t₁ \ t₂).contains k = (t₁.contains k && !t₂.contains k) :=
+  ExtTreeMap.contains_diff
+
+/- mem -/
+@[simp]
+theorem mem_diff_iff [TransCmp cmp] {k : α} :
+    k ∈ t₁ \ t₂ ↔ k ∈ t₁ ∧ k ∉ t₂ :=
+  ExtTreeMap.mem_diff_iff
+
+theorem not_mem_diff_of_not_mem_left [TransCmp cmp] {k : α}
+    (not_mem : k ∉ t₁) :
+    k ∉ t₁ \ t₂ :=
+  ExtTreeMap.not_mem_diff_of_not_mem_left not_mem
+
+theorem not_mem_diff_of_mem_right [TransCmp cmp] {k : α}
+    (mem : k ∈ t₂) :
+    k ∉ t₁ \ t₂ :=
+  ExtTreeMap.not_mem_diff_of_mem_right mem
+
+/- get? -/
+theorem get?_diff [TransCmp cmp] {k : α} :
+    (t₁ \ t₂).get? k =
+    if k ∈ t₂ then none else t₁.get? k :=
+  ExtTreeMap.getKey?_diff
+
+theorem get?_diff_of_not_mem_right [TransCmp cmp]
+    {k : α} (not_mem : k ∉ t₂) :
+    (t₁ \ t₂).get? k = t₁.get? k :=
+  ExtTreeMap.getKey?_diff_of_not_mem_right not_mem
+
+theorem get?_diff_of_not_mem_left [TransCmp cmp]
+    {k : α} (not_mem : k ∉ t₁) :
+    (t₁ \ t₂).get? k = none :=
+  ExtTreeMap.getKey?_diff_of_not_mem_left not_mem
+
+theorem get?_diff_of_mem_right [TransCmp cmp]
+    {k : α} (mem : k ∈ t₂) :
+    (t₁ \ t₂).get? k = none :=
+  ExtTreeMap.getKey?_diff_of_mem_right mem
+
+/- get -/
+theorem get_diff [TransCmp cmp]
+    {k : α} {h_mem : k ∈ t₁ \ t₂} :
+    (t₁ \ t₂).get k h_mem =
+    t₁.get k (mem_diff_iff.1 h_mem).1 :=
+  ExtTreeMap.getKey_diff
+
+/- getD -/
+theorem getD_diff [TransCmp cmp] {k fallback : α} :
+    (t₁ \ t₂).getD k fallback =
+    if k ∈ t₂ then fallback else t₁.getD k fallback :=
+  ExtTreeMap.getKeyD_diff
+
+theorem getD_diff_of_not_mem_right [TransCmp cmp]
+    {k fallback : α} (not_mem : k ∉ t₂) :
+    (t₁ \ t₂).getD k fallback = t₁.getD k fallback :=
+  ExtTreeMap.getKeyD_diff_of_not_mem_right not_mem
+
+theorem getD_diff_of_mem_right [TransCmp cmp]
+    {k fallback : α} (mem : k ∈ t₂) :
+    (t₁ \ t₂).getD k fallback = fallback :=
+  ExtTreeMap.getKeyD_diff_of_mem_right mem
+
+theorem getD_diff_of_not_mem_left [TransCmp cmp]
+    {k fallback : α} (not_mem : k ∉ t₁) :
+    (t₁ \ t₂).getD k fallback = fallback :=
+  ExtTreeMap.getKeyD_diff_of_not_mem_left not_mem
+
+/- get! -/
+theorem get!_diff [TransCmp cmp] [Inhabited α] {k : α} :
+    (t₁ \ t₂).get! k =
+    if k ∈ t₂ then default else t₁.get! k :=
+  ExtTreeMap.getKey!_diff
+
+theorem get!_diff_of_not_mem_right [TransCmp cmp] [Inhabited α]
+    {k : α} (not_mem : k ∉ t₂) :
+    (t₁ \ t₂).get! k = t₁.get! k :=
+  ExtTreeMap.getKey!_diff_of_not_mem_right not_mem
+
+theorem get!_diff_of_mem_right [TransCmp cmp] [Inhabited α]
+    {k : α} (mem : k ∈ t₂) :
+    (t₁ \ t₂).get! k = default :=
+  ExtTreeMap.getKey!_diff_of_mem_right mem
+
+theorem get!_diff_of_not_mem_left [TransCmp cmp] [Inhabited α]
+    {k : α} (not_mem : k ∉ t₁) :
+    (t₁ \ t₂).get! k = default :=
+  ExtTreeMap.getKey!_diff_of_not_mem_left not_mem
+
+/- size -/
+theorem size_diff_le_size_left [TransCmp cmp] :
+    (t₁ \ t₂).size ≤ t₁.size :=
+  ExtTreeMap.size_diff_le_size_left
+
+theorem size_diff_eq_size_left [TransCmp cmp]
+    (h : ∀ (a : α), a ∈ t₁ → a ∉ t₂) :
+    (t₁ \ t₂).size = t₁.size :=
+  ExtTreeMap.size_diff_eq_size_left h
+
+theorem size_diff_add_size_inter_eq_size_left [TransCmp cmp] :
+    (t₁ \ t₂).size + (t₁ ∩ t₂).size = t₁.size :=
+  ExtTreeMap.size_diff_add_size_inter_eq_size_left
+
+/- isEmpty -/
+@[simp]
+theorem isEmpty_diff_left [TransCmp cmp] (h : t₁.isEmpty) :
+    (t₁ \ t₂).isEmpty = true :=
+  ExtTreeMap.isEmpty_diff_left h
+
+theorem isEmpty_diff_iff [TransCmp cmp] :
+    (t₁ \ t₂).isEmpty ↔ ∀ k, k ∈ t₁ → k ∈ t₂ :=
+  ExtTreeMap.isEmpty_diff_iff
+
+end Diff
 
 section monadic
 
@@ -610,6 +879,14 @@ theorem forIn_eq_forIn [TransCmp cmp] [Monad m] [LawfulMonad m] {f : α → δ �
 theorem forIn_eq_forIn_toList [TransCmp cmp] [Monad m] [LawfulMonad m] {f : α → δ → m (ForInStep δ)} {init : δ} :
     ForIn.forIn t init f = ForIn.forIn t.toList init f :=
   ExtTreeMap.forIn_eq_forIn_keys
+
+@[simp, grind =]
+theorem forIn_toList [TransCmp cmp] (c : ExtTreeSet α cmp) : ForIn.toList c = c.toList :=
+  Std.Internal.ForIn.toList_eq_of_forIn_eq fun _ _ => forIn_eq_forIn_toList
+
+instance [TransCmp cmp] [Monad m] [LawfulMonad m] :
+    Std.Internal.PureForIn m (ExtTreeSet α cmp) α where
+  forIn_eq _ _ _ := by rw [forIn_toList]; exact forIn_eq_forIn_toList
 
 end monadic
 
@@ -747,7 +1024,13 @@ theorem isEmpty_insertMany_list [TransCmp cmp] {l : List α} :
 @[simp]
 theorem insertMany_list_eq_empty_iff [TransCmp cmp] {l : List α} :
     t.insertMany l = ∅ ↔ t = ∅ ∧ l = [] := by
-  simpa only [ext_iff] using ExtTreeMap.insertManyIfNewUnit_list_eq_empty_iff
+  simpa only [ext_iff] using! ExtTreeMap.insertManyIfNewUnit_list_eq_empty_iff
+
+theorem insertMany_list_eq_foldl [TransCmp cmp] {l : List α} :
+    t.insertMany l = l.foldl (init := t) fun acc a => acc.insert a := by
+  rw [ext_iff, ← List.foldl_hom inner (g₂ := fun acc a => acc.insertIfNew a ())]
+  · exact ExtTreeMap.insertManyIfNewUnit_list_eq_foldl
+  · exact fun _ _ => rfl
 
 @[simp, grind =]
 theorem ofList_nil :
@@ -768,9 +1051,7 @@ theorem ofList_cons [TransCmp cmp] {hd : α} {tl : List α} :
 
 theorem ofList_eq_insertMany_empty [TransCmp cmp] {l : List α} :
     ofList l cmp = insertMany (∅ : ExtTreeSet α cmp) l :=
-  match l with
-  | [] => by simp
-  | hd :: tl => by simp [ofList_cons, insertMany_cons]
+  ext ExtTreeMap.unitOfList_eq_insertManyIfNewUnit_empty
 
 @[simp, grind =]
 theorem contains_ofList [TransCmp cmp] [BEq α] [LawfulBEqCmp cmp] {l : List α} {k : α} :
@@ -844,6 +1125,10 @@ theorem ofList_eq_empty_iff [TransCmp cmp] {l : List α} :
     ofList l cmp = ∅ ↔ l = [] :=
   ext_iff.trans ExtTreeMap.unitOfList_eq_empty_iff
 
+theorem ofList_eq_foldl [TransCmp cmp] {l : List α} :
+    ofList l cmp = l.foldl (init := ∅) fun acc a => acc.insert a := by
+  rw [ofList_eq_insertMany_empty, insertMany_list_eq_foldl]
+
 section Min
 
 @[simp, grind =]
@@ -887,6 +1172,22 @@ theorem isSome_min?_insert [TransCmp cmp] {k} :
     (t.insert k).min?.isSome :=
   ExtTreeMap.isSome_minKey?_insertIfNew
 
+theorem min_insert_of_isEmpty [TransCmp cmp] {k} (he : t.isEmpty) :
+    (t.insert k).min insert_ne_empty = k :=
+  ExtTreeMap.minKey_insertIfNew_of_isEmpty he
+
+theorem min?_insert_of_isEmpty [TransCmp cmp] {k} (he : t.isEmpty) :
+    (t.insert k).min? = some k :=
+  ExtTreeMap.minKey?_insertIfNew_of_isEmpty he
+
+theorem min!_insert_of_isEmpty [TransCmp cmp] [Inhabited α] {k} (he : t.isEmpty) :
+    (t.insert k).min! = k :=
+  ExtTreeMap.minKey!_insertIfNew_of_isEmpty he
+
+theorem minD_insert_of_isEmpty [TransCmp cmp] {k} (he : t.isEmpty) {fallback : α} :
+    (t.insert k).minD fallback = k :=
+  ExtTreeMap.minKeyD_insertIfNew_of_isEmpty he
+
 theorem min?_insert_le_min? [TransCmp cmp] {k km kmi} :
     (hkm : t.min? = some km) →
     (hkmi : (t.insert k |>.min? |>.get isSome_min?_insert) = kmi) →
@@ -905,6 +1206,18 @@ theorem contains_min? [TransCmp cmp] {km} :
 theorem min?_mem [TransCmp cmp] {km} :
     (hkm : t.min? = some km) → km ∈ t :=
   ExtTreeMap.minKey?_mem
+
+@[simp] theorem min?_toList [TransCmp cmp] [Min α]
+    [LE α] [LawfulOrderCmp cmp] [LawfulOrderMin α]
+    [LawfulOrderLeftLeaningMin α] [LawfulEqCmp cmp] :
+    t.toList.min? = t.min? :=
+  ExtDTreeMap.min?_keys
+
+@[simp] theorem head?_toList [TransCmp cmp] [Min α]
+    [LE α] [LawfulOrderCmp cmp] [LawfulOrderMin α]
+    [LawfulOrderLeftLeaningMin α] [LawfulEqCmp cmp] :
+    t.toList.head? = t.min? :=
+  ExtDTreeMap.head?_keys
 
 theorem isSome_min?_of_contains [TransCmp cmp] {k} :
     (hc : t.contains k) → t.min?.isSome :=

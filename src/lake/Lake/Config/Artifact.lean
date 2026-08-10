@@ -49,15 +49,15 @@ public instance : ToJson ArtifactDescr := ⟨(toJson ·.relPath)⟩
 /-- Parse an output's relative file path into an `ArtifactDescr`. -/
 public def ofFilePath? (path : FilePath) : Except String ArtifactDescr := do
   let s := path.toString
-  let pos := s.posOf '.'
-  if h : pos.atEnd s then
+  let pos := s.find '.'
+  if h : pos.IsAtEnd then
     let some hash := Hash.ofString? s
       | throw "expected artifact file name to be a content hash"
     return {hash, ext := ""}
   else
-    let some hash := Hash.ofString? <| String.Pos.Raw.extract s 0 pos
+    let some hash := Hash.ofString? <| s.extract s.startPos pos
       | throw "expected artifact file name to be a content hash"
-    let ext := String.Pos.Raw.extract s (pos.next' s h) s.rawEndPos
+    let ext := s.extract (pos.next h) s.endPos
     return {hash, ext}
 
 public protected def fromJson? (data : Json) : Except String ArtifactDescr := do
@@ -75,7 +75,7 @@ public structure Artifact extends descr : ArtifactDescr where
   path : FilePath
   /-- The artifact's. This is used, for example, as a caption in traces. -/
   name := path.toString
-  /-- The artifact's modification time (or `0` if unknown). -/
+  /-- The artifact's modification time. -/
   mtime : MTime
   deriving Inhabited, Repr
 

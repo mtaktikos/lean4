@@ -45,7 +45,7 @@ private partial def floatOutAntiquotTerms (stx : Syntax) : StateT (Syntax → Te
 
 private def getSepFromSplice (splice : Syntax) : String :=
   if let Syntax.atom _ sep := getAntiquotSpliceSuffix splice then
-    sep.dropRight 1 -- drop trailing *
+    sep.dropEnd 1 |>.copy -- drop trailing *
   else
     unreachable!
 
@@ -225,8 +225,7 @@ def getQuotKind (stx : Syntax) : TermElabM SyntaxNodeKind := do
   | .str kind "quot" => addNamedQuotInfo stx kind
   | ``dynamicQuot =>
     let id := stx[1]
-    -- local parser use, so skip meta check
-    match (← elabParserName id (checkMeta := false)) with
+    match (← withoutExporting <| elabParserName id) with
     | .parser n _ => return n
     | .category c => return c
     | .alias _    => return (← Parser.getSyntaxKindOfParserAlias? id.getId.eraseMacroScopes).get!

@@ -17,10 +17,11 @@ import Lean.Meta.Tactic.Grind.Arith.Cutsat.CommRing
 import Lean.Meta.Tactic.Grind.Arith.Cutsat.Norm
 import Lean.Meta.Tactic.Grind.Arith.EvalNum
 import Lean.Meta.NatInstTesters
+import Init.Omega
 public section
 namespace Lean.Meta.Grind.Arith.Cutsat
 
-private def _root_.Int.Linear.Poly.substVar (p : Poly) : GoalM (Option (Var × EqCnstr × Poly)) := do
+private def _root_.Int.Internal.Linear.Poly.substVar (p : Poly) : GoalM (Option (Var × EqCnstr × Poly)) := do
   let some (a, x, c) ← p.findVarToSubst | return none
   let b := c.p.coeff x
   let p' := p.mul (-b) |>.combine (c.p.mul a)
@@ -100,7 +101,7 @@ def DiseqCnstr.assert (c : DiseqCnstr) : GoalM Unit := do
 /--
 Selects the variable in the given linear polynomial whose coefficient has the smallest absolute value.
 -/
-def _root_.Int.Linear.Poly.pickVarToElim? (p : Poly) : Option (Int × Var) :=
+def _root_.Int.Internal.Linear.Poly.pickVarToElim? (p : Poly) : Option (Int × Var) :=
   match p with
   | .num _ => none
   | .add k x p => go k x p
@@ -217,7 +218,7 @@ where
 
   go (e : Expr) : StateT PropagateMul.State GoalM Unit := do
     let_expr HMul.hMul _ _ _ i a b := e | goVar e
-    if (← isInstHMulInt i) then
+    if (← Structural.isInstHMulInt i) then
       go a; go b
     else
       goVar e
@@ -225,7 +226,7 @@ where
 private def propagateNonlinearDiv (x : Var) : GoalM Bool := do
   let e ← getVar x
   let_expr HDiv.hDiv _ _ _ i a b := e | return false
-  unless (← isInstHDivInt i) do return false
+  unless (← Structural.isInstHDivInt i) do return false
   let some (k, c) ← isExprEqConst? b | return false
   let c' ← if let some a ← getIntValue? a then
     pure { p := .add 1 x (.num (-(a/k))), h := .div k none c : EqCnstr }
@@ -240,7 +241,7 @@ private def propagateNonlinearDiv (x : Var) : GoalM Bool := do
 private def propagateNonlinearMod (x : Var) : GoalM Bool := do
   let e ← getVar x
   let_expr HMod.hMod _ _ _ i a b := e | return false
-  unless (← isInstHModInt i) do return false
+  unless (← Structural.isInstHModInt i) do return false
   let some (k, c) ← isExprEqConst? b | return false
   let c' ← if let some a ← getIntValue? a then
     pure { p := .add 1 x (.num (-(a%k))), h := .mod k none c : EqCnstr }
@@ -255,7 +256,7 @@ private def propagateNonlinearMod (x : Var) : GoalM Bool := do
 private def propagateNonlinearPow (x : Var) : GoalM Bool := do
   let e ← getVar x
   let_expr HPow.hPow _ _ _ i a b := e | return false
-  unless (← isInstHPowInt i) do return false
+  unless (← Structural.isInstHPowInt i) do return false
   let (ka, ca?) ← if let some ka ← getIntValue? a then
     pure (ka, none)
   else if let some (ka, ca) ← isExprEqConst? a then
@@ -275,6 +276,7 @@ private def propagateNonlinearPow (x : Var) : GoalM Bool := do
   c'.assert
   return true
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export lean_cutsat_propagate_nonlinear]
 def propagateNonlinearTermImpl (y : Var) (x : Var) : GoalM Bool := do
   unless (← isVarEqConst? y).isSome do return false
@@ -330,13 +332,14 @@ nonlinear terms.
 
 Remark: `x` is the variable that was eliminated using `p`.
 -/
-partial def _root_.Int.Linear.Poly.updateOccsForElimEq (p : Poly) (x : Var) : GoalM Unit := do
+partial def _root_.Int.Internal.Linear.Poly.updateOccsForElimEq (p : Poly) (x : Var) : GoalM Unit := do
   let rec go (p : Poly) : GoalM Unit := do
     let .add _ y p := p | return ()
     unless x == y do addOcc y x
     go p
   go p
 
+set_option compiler.ignoreBorrowAnnotation true in
 @[export lean_grind_cutsat_assert_eq]
 def EqCnstr.assertImpl (c : EqCnstr) : GoalM Unit := do
   if (← inconsistent) then return ()
@@ -386,13 +389,6 @@ private def exprAsPoly (a : Expr) : GoalM Poly := do
   else
     throwError "internal `grind` error, expression is not relevant to cutsat{indentExpr a}"
 
-private def processNewIntEq (a b : Expr) : GoalM Unit := do
-  let p₁ ← exprAsPoly a
-  let p₂ ← exprAsPoly b
-  -- Remark: we don't need to use the comm ring normalizer here because `p` is always linear.
-  let p := p₁.combine (p₂.mul (-1))
-  { p, h := .core a b p₁ p₂ : EqCnstr }.assert
-
 /-- Asserts a constraint coming from the core. -/
 private def EqCnstr.assertCore (c : EqCnstr) : GoalM Unit := do
   if let some (re, rp, p) ← c.p.normCommRing? then
@@ -400,6 +396,14 @@ private def EqCnstr.assertCore (c : EqCnstr) : GoalM Unit := do
     c.assert
   else
     c.assert
+
+private def processNewIntEq (a b : Expr) : GoalM Unit := do
+  let p₁ ← exprAsPoly a
+  let p₂ ← exprAsPoly b
+  -- Remark: we don't need to use the comm ring normalizer here because `p` is always linear.
+  let p := p₁.combine (p₂.mul (-1))
+  let c := { p, h := .core a b p₁ p₂ : EqCnstr }
+  c.assertCore
 
 /--
 Similar to `natToInt`, but checks first whether the term has already been internalized.
@@ -500,27 +504,28 @@ def processNewDiseq (a b : Expr) : GoalM Unit := do
 
 /-- Different kinds of terms internalized by this module. -/
 private inductive SupportedTermKind where
-  | add | mul | num | div | mod | sub | pow | natAbs | toNat | natCast | neg | toInt | finVal
+  | add | mul | num | div | mod | sub | pow | natAbs | toNat | natCast | neg | toInt | finVal | finMk
   deriving BEq, Repr
 
-private def getKindAndType? (e : Expr) : Option (SupportedTermKind × Expr) :=
+private def getKindAndType? (e : Expr) : GrindM (Option (SupportedTermKind × Expr)) :=
   match_expr e with
-  | HAdd.hAdd α _ _ _ _ _ => some (.add, α)
-  | HSub.hSub α _ _ _ _ _ => some (.sub, α)
-  | HMul.hMul α _ _ _ _ _ => some (.mul, α)
-  | HDiv.hDiv α _ _ _ _ _ => some (.div, α)
-  | HMod.hMod α _ _ _ _ _ => some (.mod, α)
-  | HPow.hPow α _ _ _ _ _ => some (.pow, α)
-  | OfNat.ofNat α _ _     => some (.num, α)
+  | HAdd.hAdd α _ _ _ _ _ => return some (.add, α)
+  | HSub.hSub α _ _ _ _ _ => return some (.sub, α)
+  | HMul.hMul α _ _ _ _ _ => return some (.mul, α)
+  | HDiv.hDiv α _ _ _ _ _ => return some (.div, α)
+  | HMod.hMod α _ _ _ _ _ => return some (.mod, α)
+  | HPow.hPow α _ _ _ _ _ => return some (.pow, α)
+  | OfNat.ofNat α _ _     => return some (.num, α)
   | Neg.neg α _ a =>
-    let_expr OfNat.ofNat _ _ _ := a | some (.neg, α)
-    some (.num, α)
-  | Int.natAbs _ => some (.natAbs, Nat.mkType)
-  | Int.toNat _ => some (.toNat, Nat.mkType)
-  | NatCast.natCast α _ _ => some (.natCast, α)
-  | Fin.val _ _ => some (.finVal, Nat.mkType)
-  | Grind.ToInt.toInt _ _ _ _ => some (.toInt, Int.mkType)
-  | _ => none
+    let_expr OfNat.ofNat _ _ _ := a | return some (.neg, α)
+    return some (.num, α)
+  | Int.natAbs _ => return some (.natAbs, Nat.mkType)
+  | Int.toNat _ => return some (.toNat, Nat.mkType)
+  | NatCast.natCast α _ _ => return some (.natCast, α)
+  | Fin.val _ _ => return some (.finVal, Nat.mkType)
+  | Grind.ToInt.toInt _ _ _ _ => return some (.toInt, Int.mkType)
+  | Fin.mk n _ _ => return some (.finMk, ← shareCommon (mkApp (mkConst ``Fin) n))
+  | _ => return none
 
 private def isForbiddenParent (parent? : Option Expr) (k : SupportedTermKind) : Bool := Id.run do
   let some parent := parent? | return false
@@ -528,7 +533,7 @@ private def isForbiddenParent (parent? : Option Expr) (k : SupportedTermKind) : 
   -- TODO: document `NatCast.natCast` case.
   -- Remark: we added it to prevent natCast_sub from being expanded twice.
   if declName == ``NatCast.natCast then return true
-  if k matches .div | .mod | .sub | .pow | .neg | .natAbs | .toNat | .natCast | .toInt | .finVal then return false
+  if k matches .div | .mod | .sub | .pow | .neg | .natAbs | .toNat | .natCast | .toInt | .finVal | .finMk then return false
   if declName == ``HAdd.hAdd || declName == ``LE.le || declName == ``Dvd.dvd then return true
   match k with
   | .add => return false
@@ -538,6 +543,26 @@ private def isForbiddenParent (parent? : Option Expr) (k : SupportedTermKind) : 
     return declName == ``HMul.hMul || declName == ``HPow.hPow
   | _ => unreachable!
 
+/--
+Internalizes the integer expression `e` by introducing a fresh cutsat variable `x` for `e`
+and asserting the equation `x = e` as an `EqCnstr`.
+
+The polynomial `p = toPoly e` represents `e` as a sum of monomials over cutsat variables.
+If `p` is just `1*x + 0` (e.g., `e` is opaque or a nonlinear term like `a*b`), the equation
+`x = x` is trivial and skipped.
+
+Otherwise, the assertion uses one of two paths:
+- `defnCommRing` when `p` contains nonlinear monomials and the comm-ring solver can simplify
+  it to a linear polynomial `p'`. The constraint becomes `x = p'`.
+- `defn` for purely linear polynomials, where the constraint is `x = p`.
+
+We also build the reflective representation `e' : Int.Internal.Linear.Expr` via `toLinearExpr`. It is
+passed to the constraint and used during proof construction: `eq_def_struct` (resp.
+`eq_def_struct_norm`) bridges `x.denote = e.denote` via `Expr.denote`, which faithfully
+preserves expression structure. This avoids a kernel type mismatch when `e` contains
+sub-structure that `Poly.denote'` collapses (e.g., a trailing `+ 0`, where `Poly.denote'`
+drops the `(.num 0)` but `e` still has the explicit `+ 0`). See issue #13572.
+-/
 private def internalizeInt (e : Expr) : GoalM Unit := do
   if (← hasVar e) then return ()
   let p ← toPoly e
@@ -547,11 +572,12 @@ private def internalizeInt (e : Expr) : GoalM Unit := do
     -- It is pointless to assert `x = x`
     -- This can happen if `e` is a nonlinear term (e.g., `e` is `a*b`)
     return
+  let e' ← toLinearExpr e
   if let some (re, rp, p') ← p.normCommRing? then
-    let c := { p := .add (-1) x p', h := .defnCommRing e p re rp p' : EqCnstr }
+    let c := { p := .add (-1) x p', h := .defnCommRing e e' p re rp p' : EqCnstr }
     c.assert
   else
-    let c := { p := .add (-1) x p, h := .defn e p : EqCnstr }
+    let c := { p := .add (-1) x p, h := .defn e e' : EqCnstr }
     c.assert
 
 private def expandDivMod (a : Expr) (b : Int) : GoalM Unit := do
@@ -582,13 +608,13 @@ private def expandDivMod (a : Expr) (b : Int) : GoalM Unit := do
       pushEq ediv neg_a <| mkApp (mkConst ``Int.ediv_minus_one) a
   else
     let n : Int := 1 - b.natAbs
-    pushNewFact <| mkApp2 (mkConst ``Int.Linear.ediv_emod) a b'
-    pushNewFact <| mkApp3 (mkConst ``Int.Linear.emod_nonneg) a b' eagerReflBoolTrue
-    pushNewFact <| mkApp4 (mkConst ``Int.Linear.emod_le) a b' (toExpr n) eagerReflBoolTrue
+    pushNewFact <| mkApp2 (mkConst ``Int.Internal.Linear.ediv_emod) a b'
+    pushNewFact <| mkApp3 (mkConst ``Int.Internal.Linear.emod_nonneg) a b' eagerReflBoolTrue
+    pushNewFact <| mkApp4 (mkConst ``Int.Internal.Linear.emod_le) a b' (toExpr n) eagerReflBoolTrue
 
 private def propagateDiv (e : Expr) : GoalM Unit := do
   let_expr HDiv.hDiv _ _ _ inst a b ← e | return ()
-  if (← isInstHDivInt inst) then
+  if (← Structural.isInstHDivInt inst) then
     if let some b ← getIntValue? b then
       expandDivMod a b
     else
@@ -597,7 +623,7 @@ private def propagateDiv (e : Expr) : GoalM Unit := do
 
 private def propagateMod (e : Expr) : GoalM Unit := do
   let_expr HMod.hMod _ _ _ inst a b ← e | return ()
-  if (← isInstHModInt inst) then
+  if (← Structural.isInstHModInt inst) then
     if let some b ← getIntValue? b then
       expandDivMod a b
     else
@@ -626,11 +652,11 @@ private def propagateToNat (e : Expr) : GoalM Unit := do
   let_expr Int.toNat a := e | return ()
   pushNewFact <| mkApp (mkConst ``Nat.ToInt.ofNat_toNat) a
 
-private def isToIntForbiddenParent (parent? : Option Expr) : Bool :=
+private def isToIntForbiddenParent (parent? : Option Expr) : GrindM Bool := do
   if let some parent := parent? then
-    getKindAndType? parent |>.isSome
+    return (← getKindAndType? parent).isSome
   else
-    false
+    return false
 
 private def internalizeIntTerm (e type : Expr) (parent? : Option Expr) (k : SupportedTermKind) : GoalM Unit := do
   if isForbiddenParent parent? k then return ()
@@ -643,10 +669,10 @@ private def internalizeIntTerm (e type : Expr) (parent? : Option Expr) (k : Supp
 
 private def propagateNatSub (e : Expr) : GoalM Unit := do
   let_expr HSub.hSub _ _ _ inst a b := e | return ()
-  unless (← isInstHSubNat inst) do return ()
+  unless (← Structural.isInstHSubNat inst) do return ()
   discard <| mkNatVar a
   discard <| mkNatVar b
-  pushNewFact <| mkApp2 (mkConst ``Int.Linear.natCast_sub) a b
+  pushNewFact <| mkApp2 (mkConst ``Int.Internal.Linear.natCast_sub) a b
 
 private def internalizeNatTerm (e type : Expr) (parent? : Option Expr) (k : SupportedTermKind) : GoalM Unit := do
   if (← isNatTerm e) then return () -- already internalized
@@ -707,13 +733,13 @@ Internalizes an integer (and `Nat`) expression. Here are the different cases tha
 -/
 def internalize (e : Expr) (parent? : Option Expr) : GoalM Unit := do
   unless (← getConfig).lia do return ()
-  if let some (k, type) := getKindAndType? e then
+  if let some (k, type) ← getKindAndType? e then
     if type.isConstOf ``Int then
       internalizeIntTerm e type parent? k
     else if type.isConstOf ``Nat then
       internalizeNatTerm e type parent? k
     else
-      if isToIntForbiddenParent parent? then return ()
+      if (← isToIntForbiddenParent parent?) then return ()
       internalizeToIntTerm e type
   else
     /-
@@ -753,6 +779,13 @@ def internalize (e : Expr) (parent? : Option Expr) : GoalM Unit := do
     Perhaps, we should have a `HasToInt` auxiliary class without output parameters.
     -/
     let_expr Eq α a b := e | return ()
+    unless (← alreadyInternalized e) do
+      /-
+      **Note**: Core invokes `Solver.internalize` for top-level equations that are not internalized.
+      There is no point of processing them since this module has handlers for `newEq` and
+      `newDiseq`.
+      -/
+      return ()
     unless (← getToIntId? α).isSome do return ()
     internalizeToIntTerm a α
     internalizeToIntTerm b α

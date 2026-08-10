@@ -155,8 +155,8 @@ public instance : ToString LogEntry := ⟨LogEntry.toString⟩
   {level := .error, message}
 
 public def LogEntry.ofSerialMessage (msg : SerialMessage) : LogEntry :=
-  let str := if msg.caption.trim.isEmpty then
-     msg.data.trim else s!"{msg.caption.trim}:\n{msg.data.trim}"
+  let str := if msg.caption.trimAscii.isEmpty then
+     msg.data.trimAscii.copy else s!"{msg.caption.trimAscii}:\n{msg.data.trimAscii}"
   {
     level := .ofMessageSeverity msg.severity
     message := mkErrorStringWithPos msg.fileName msg.pos str none
@@ -264,11 +264,11 @@ public instance [Monad n] [MonadLiftT m n] : MonadLog (MonadLogT m n) where
   ReaderT.adapt f self
 
 @[inline] public def ignoreLog [Pure m] (self : MonadLogT m n α) : n α :=
-  self MonadLog.nop
+  self.run MonadLog.nop
 
 end MonadLogT
 
-/- A Lake log. An `Array` of log entries. -/
+/-- A Lake log. An `Array` of log entries. -/
 public structure Log where
   entries : Array LogEntry
   deriving Inhabited
@@ -446,7 +446,7 @@ from an `ELogT` (e.g., `LogIO`).
   let buf ← liftM (m := BaseIO) buf.get
   let out := String.fromUTF8! buf.data
   unless out.isEmpty do
-    logInfo s!"stdout/stderr:\n{out.trim}"
+    logInfo s!"stdout/stderr:\n{out.trimAscii}"
   return a
 
 /-- Throw with the logged error `message`. -/
@@ -486,7 +486,7 @@ public instance [Monad m] : MonadLog (LogT m) := .ofMonadState
 
 namespace LogT
 
-public abbrev run [Functor m] (self : LogT m α) (log : Log := {})  : m (α × Log) :=
+public abbrev run (self : LogT m α) (log : Log := {})  : m (α × Log) :=
   StateT.run self log
 
 public abbrev run' [Functor m] (self : LogT m α) (log : Log := {}) :  m α :=
@@ -502,7 +502,7 @@ Thus, this is best used when the lift cannot fail.
   [Monad n] [MonadStateOf Log n] [MonadLiftT m n] [MonadFinally n]
   (self : LogT m α)
 : n α := do
-  let (a, log) ← self (← takeLog)
+  let (a, log) ← self.run (← takeLog)
   set log
   return a
 
@@ -513,7 +513,7 @@ using the new monad's `logger`.
 @[inline] public def replayLog
   [Monad n] [logger : MonadLog n] [MonadLiftT m n] (self : LogT m α)
 : n α := do
-  let (a, log) ← self {}
+  let (a, log) ← self.run {}
   log.replay (logger := logger)
   return a
 

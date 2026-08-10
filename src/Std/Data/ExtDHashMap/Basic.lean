@@ -351,19 +351,66 @@ def Const.insertManyIfNewUnit [EquivBEq α] [LawfulHashable α] {ρ : Type w}
     m := ⟨m.1.insertIfNew a (), fun _ init step => step (m.2 _ init step)⟩
   return m.1
 
-theorem union_congr [EquivBEq α] [LawfulHashable α] (a b c d : DHashMap α β) (h₁ : a ~m c) (h₂ : b ~m d) : a ∪ b ~m c ∪ d :=
-  DHashMap.Equiv.trans (DHashMap.union_equiv_congr_left h₁) (DHashMap.union_equiv_congr_right h₂)
-
 @[inline, inherit_doc DHashMap.union]
 def union [EquivBEq α] [LawfulHashable α] (m₁ m₂ : ExtDHashMap α β) : ExtDHashMap α β := lift₂ (fun x y : DHashMap α β => mk (x.union y))
   (fun a b c d equiv₁ equiv₂ => by
     simp only [DHashMap.union_eq, mk'.injEq]
     apply Quotient.sound
-    apply union_congr
+    apply DHashMap.Equiv.union_congr
     . exact equiv₁
     . exact equiv₂) m₁ m₂
 
 instance [EquivBEq α] [LawfulHashable α] : Union (ExtDHashMap α β) := ⟨union⟩
+
+instance [LawfulBEq α] [∀ k, BEq (β k)] : BEq (ExtDHashMap α β) where
+  beq m₁ m₂ := lift₂ (fun x y : DHashMap α β => x.beq y) (fun _ _ _ _ => DHashMap.Equiv.beq_congr) m₁ m₂
+
+instance [LawfulBEq α] [∀ k, BEq (β k)] [∀ k, ReflBEq (β k)] : ReflBEq (ExtDHashMap α β) where
+  rfl {a} := a.inductionOn fun x => DHashMap.Equiv.beq <| DHashMap.Equiv.refl x
+
+instance [LawfulBEq α] [∀ k, BEq (β k)] [∀ k, LawfulBEq (β k)] : LawfulBEq (ExtDHashMap α β) where
+  eq_of_beq {m₁} {m₂} := m₁.inductionOn₂ m₂ fun _ _ hyp => sound <| DHashMap.equiv_of_beq hyp
+
+instance {α : Type u} {β : α → Type v} [BEq α] [LawfulBEq α] [Hashable α] [∀ k, BEq (β k)] [∀ k, LawfulBEq (β k)] : DecidableEq (ExtDHashMap α β) :=
+  fun _ _ => decidable_of_iff _ beq_iff_eq
+
+namespace Const
+
+variable {β : Type v}
+
+@[inline, inherit_doc DHashMap.beq]
+def beq [EquivBEq α] [LawfulHashable α] [BEq β] (m₁ m₂ : ExtDHashMap α fun _ => β) : Bool :=
+  lift₂ (fun x y : DHashMap α fun _ => β => DHashMap.Const.beq x y) (fun _ _ _ _ => DHashMap.Const.Equiv.beq_congr) m₁ m₂
+
+theorem beq_of_eq [EquivBEq α] [LawfulHashable α] [BEq β] [ReflBEq β] (m₁ m₂ : ExtDHashMap α fun _ => β) : m₁ = m₂ → Const.beq m₁ m₂ :=
+  m₁.inductionOn₂ m₂ fun _ _ h => DHashMap.Const.Equiv.beq <| exact h
+
+theorem eq_of_beq [LawfulBEq α] [BEq β] [LawfulBEq β] (m₁ m₂ : ExtDHashMap α fun _ => β) : Const.beq m₁ m₂ → m₁ = m₂ :=
+  m₁.inductionOn₂ m₂ fun _ _ h => sound <| DHashMap.Const.equiv_of_beq h
+
+end Const
+
+@[inline, inherit_doc DHashMap.inter]
+def inter [EquivBEq α] [LawfulHashable α] (m₁ m₂ : ExtDHashMap α β) : ExtDHashMap α β := lift₂ (fun x y : DHashMap α β => mk (x.inter y))
+  (fun a b c d equiv₁ equiv₂ => by
+    simp only [DHashMap.inter_eq, mk'.injEq]
+    apply Quotient.sound
+    apply DHashMap.Equiv.inter_congr
+    · exact equiv₁
+    · exact equiv₂) m₁ m₂
+
+instance [EquivBEq α] [LawfulHashable α] : Inter (ExtDHashMap α β) := ⟨inter⟩
+
+@[inline, inherit_doc DHashMap.diff]
+def diff [EquivBEq α] [LawfulHashable α] (m₁ m₂ : ExtDHashMap α β) : ExtDHashMap α β := lift₂ (fun x y : DHashMap α β => mk (x.diff y))
+  (fun a b c d equiv₁ equiv₂ => by
+    simp only [DHashMap.diff_eq, mk'.injEq]
+    apply Quotient.sound
+    apply DHashMap.Equiv.diff_congr
+    · exact equiv₁
+    · exact equiv₂) m₁ m₂
+
+instance [EquivBEq α] [LawfulHashable α] : SDiff (ExtDHashMap α β) := ⟨diff⟩
 
 @[inline, inherit_doc DHashMap.Const.unitOfArray]
 def Const.unitOfArray [BEq α] [Hashable α] (l : Array α) :

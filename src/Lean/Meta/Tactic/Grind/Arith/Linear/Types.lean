@@ -8,7 +8,6 @@ prelude
 public import Init.Grind.Ring.CommSolver
 public import Init.Grind.Ordered.Linarith
 public import Lean.Meta.Tactic.Grind.Types
-public import Init.Data.Rat.Basic
 public section
 namespace Lean.Meta.Grind.Arith.Linear
 export Lean.Grind.Linarith (Var Poly)
@@ -17,6 +16,42 @@ abbrev LinExpr := Lean.Grind.Linarith.Expr
 
 deriving instance Hashable for Poly
 deriving instance Hashable for Grind.Linarith.Expr
+
+mutual
+/-- Auxiliary type for normalizing `Ring` and `Field` inequalities. -/
+structure RingIneqCnstr where
+  p      : Grind.CommRing.Poly
+  strict : Bool
+  h      : RingIneqCnstrProof
+
+inductive RingIneqCnstrProof where
+  | core (e : Expr) (lhs rhs : Grind.CommRing.Expr)
+  | notCore (e : Expr) (lhs rhs : Grind.CommRing.Expr)
+  | cancelDen (c : RingIneqCnstr) (val : Int) (x : Var) (n : Var)
+end
+
+mutual
+/-- Auxiliary type for normalizing `Ring` and `Field` equalities. -/
+structure RingEqCnstr where
+  p      : Grind.CommRing.Poly
+  h      : RingEqCnstrProof
+
+inductive RingEqCnstrProof where
+  | core (a b : Expr) (ra rb : Grind.CommRing.Expr)
+  | symm (c : RingEqCnstr)
+  | cancelDen (c : RingEqCnstr) (val : Int) (x : Var) (n : Var)
+end
+
+mutual
+/-- Auxiliary type for normalizing `Ring` and `Field` disequalities. -/
+structure RingDiseqCnstr where
+  p      : Grind.CommRing.Poly
+  h      : RingDiseqCnstrProof
+
+inductive RingDiseqCnstrProof where
+  | core (a b : Expr) (ra rb : Grind.CommRing.Expr)
+  | cancelDen (c : RingDiseqCnstr) (val : Int) (x : Var) (n : Var)
+end
 
 mutual
 /-- An equality constraint and its justification/proof. -/
@@ -41,8 +76,7 @@ structure IneqCnstr where
 inductive IneqCnstrProof where
   | core (e : Expr) (lhs rhs : LinExpr)
   | notCore (e : Expr) (lhs rhs : LinExpr)
-  | coreCommRing (e : Expr) (lhs rhs : Grind.CommRing.Expr) (p : Grind.CommRing.Poly) (lhs' : LinExpr)
-  | notCoreCommRing (e : Expr) (lhs rhs : Grind.CommRing.Expr) (p : Grind.CommRing.Poly) (lhs' : LinExpr)
+  | ring (c : RingIneqCnstr) (lhs : LinExpr)
   | coreOfNat (e : Expr) (natStructId : Nat) (lhs rhs : LinExpr)
   | notCoreOfNat (e : Expr) (natStructId : Nat) (lhs rhs : LinExpr)
   | combine (c₁ : IneqCnstr) (c₂ : IneqCnstr)
@@ -54,8 +88,8 @@ inductive IneqCnstrProof where
     ofEq (a b : Expr) (la lb : LinExpr)
   | /-- `a ≤ b` from an equality `a = b` coming from the core. -/
     ofEqOfNat (a b : Expr) (natStructId : Nat) (la lb : LinExpr)
-  | /-- `a ≤ b` from an equality `a = b` coming from the core. -/
-    ofCommRingEq (a b : Expr) (ra rb : Grind.CommRing.Expr) (p : Grind.CommRing.Poly) (lhs' : LinExpr)
+  | /-- `p ≤ 0` from a ring equality `p = 0`. -/
+    ringEq (c : RingEqCnstr) (lhs : LinExpr)
   | subst (x : Var) (c₁ : EqCnstr) (c₂ : IneqCnstr)
 
 structure DiseqCnstr where
@@ -64,7 +98,7 @@ structure DiseqCnstr where
 
 inductive DiseqCnstrProof where
   | core (a b : Expr) (lhs rhs : LinExpr)
-  | coreCommRing (a b : Expr) (ra rb : Grind.CommRing.Expr) (p : Grind.CommRing.Poly) (lhs' : LinExpr)
+  | ring (c : RingDiseqCnstr) (lhs : LinExpr)
   | coreOfNat (a b : Expr) (natStructId : Nat) (lhs rhs : LinExpr)
   | neg (c : DiseqCnstr)
   | subst (k₁ k₂ : Int) (c₁ : EqCnstr) (c₂ : DiseqCnstr)

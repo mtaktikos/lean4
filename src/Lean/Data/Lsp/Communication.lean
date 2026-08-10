@@ -9,26 +9,30 @@ module
 prelude
 public import Lean.Data.JsonRpc
 import Init.Data.String.TakeDrop
+import Init.Data.String.Search
+import Init.Data.Iterators.Consumers.Collect
 
 public section
 
 /-! Reading/writing LSP messages from/to IO handles. -/
 
-namespace IO.FS.Stream
+open IO
+
+namespace Lean.IO.FS.Stream
 
 open Lean
 open Lean.JsonRpc
 
 section
   private def parseHeaderField (s : String) : Option (String × String) := do
-    guard $ s ≠ "" ∧ s.takeRight 2 = "\r\n"
-    let xs := (s.dropRight 2).splitOn ": "
+    guard $ s ≠ "" ∧ s.takeEnd 2 == "\r\n".toSlice
+    let xs := (s.dropEnd 2).split ": " |>.toList
     match xs with
     | []  => none
     | [_] => none
     | name :: value :: rest =>
-      let value := ": ".intercalate (value :: rest)
-      some ⟨name, value⟩
+      let value := ": ".toSlice.intercalate (value :: rest)
+      some ⟨name.copy, value⟩
 
   /-- Returns true when the string is a Lean 3 request.
   This means that the user is running a Lean 3 language client that
@@ -133,4 +137,4 @@ section
     h.writeLspMessage e
 end
 
-end IO.FS.Stream
+end Lean.IO.FS.Stream

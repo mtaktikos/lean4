@@ -8,6 +8,7 @@ module
 prelude
 public import Lake.Config.ConfigTarget
 public import Lake.Util.NativeLib
+import Init.Omega
 
 namespace Lake
 open Lean System
@@ -58,9 +59,13 @@ The names of the library's root modules
 
 /-- The name of the native library (e.g., what is passed to `-l`). -/
 public def libName (self : LeanLib) : String :=
+  let libName :=
+    if self.config.libName.isEmpty then
+      mkModuleInitializationStem self.name self.pkg.id?
+    else self.config.libName
   if self.libPrefixOnWindows && System.Platform.isWindows then
-    s!"lib{self.config.libName}"
-  else self.config.libName
+    s!"lib{libName}"
+  else libName
 
 /-- The file name of the library's static binary (i.e., its `.a`) -/
 @[inline] public def staticLibFileName (self : LeanLib) : FilePath :=
@@ -84,7 +89,9 @@ public def libName (self : LeanLib) : String :=
 
 /-- Whether the shared binary of this library is a valid plugin. -/
 public def isPlugin (self : LeanLib) : Bool :=
-  self.roots == #[self.name] && self.libName == self.name.mangle ""
+  if h : self.roots.size = 1 then
+    self.libName == mkModuleInitializationStem self.roots[0] self.pkg.id?
+  else false
 
 /-- The library's `extraDepTargets` configuration. -/
 @[inline] public def extraDepTargets (self : LeanLib) :=
@@ -149,6 +156,20 @@ Enabled if either the library or the package enables it.
   self.config.allowImportAll || self.pkg.allowImportAll
 
 /--
+Whether modules of this library are designed for use with the module system.
+Enabled if either the library or the package enables it.
+-/
+@[inline] public def requiresModuleSystem (self : LeanLib) : Bool :=
+  self.config.requiresModuleSystem || self.pkg.requiresModuleSystem
+
+/--
+Whether modules of this library may be non-module-system files without warning.
+Enabled if either the library or the package enables it.
+-/
+@[inline] public def allowNonModules (self : LeanLib) : Bool :=
+  self.config.allowNonModules || self.pkg.allowNonModules
+
+/--
 The dynamic libraries to load for modules of this library.
 The targets of the package plus the targets of the library (in that order).
 -/
@@ -205,14 +226,14 @@ That is, the package's `weakLeancArgs` plus the library's `weakLeancArgs`.
   self.pkg.weakLeancArgs ++ self.config.weakLeancArgs
 
 /--
-Additionl target objects to pass to `ar` when linking the static library.
+Additional target objects to pass to `ar` when linking the static library.
 That is, the package's `moreLinkObjs` plus the library's `moreLinkObjs`.
 -/
 @[inline] public def moreLinkObjs (self : LeanLib) : TargetArray FilePath :=
   self.pkg.moreLinkObjs ++ self.config.moreLinkObjs
 
-/-
-Additionl target libraries to are linked to the shared library.
+/--
+Additional target libraries to are linked to the shared library.
 That is, the package's `moreLinkLibs` plus the library's `moreLinkLibs`.
 -/
 @[inline] public def moreLinkLibs (self : LeanLib) : TargetArray Dynlib :=

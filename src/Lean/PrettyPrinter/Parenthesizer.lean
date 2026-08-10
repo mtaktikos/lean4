@@ -197,7 +197,7 @@ unsafe builtin_initialize combinatorParenthesizerAttribute : ParserCompiler.Comb
 namespace Parenthesizer
 
 open Lean.Core Parser
-open Std.Format
+open _root_.Std.Format
 
 def throwBacktrack {α} : ParenthesizerM α :=
 throw $ Exception.internal backtrackExceptionId
@@ -256,14 +256,14 @@ def maybeParenthesize (cat : Name) (canJuxtapose : Bool) (mkParen : Syntax → S
       let mut stx ← getCur
       -- Move leading/trailing whitespace of `stx` outside of parentheses
       if let SourceInfo.original _ pos trail endPos := stx.getHeadInfo then
-        stx := stx.setHeadInfo (SourceInfo.original "".toSubstring pos trail endPos)
+        stx := stx.setHeadInfo (SourceInfo.original "".toRawSubstring pos trail endPos)
       if let SourceInfo.original lead pos _ endPos := stx.getTailInfo then
-        stx := stx.setTailInfo (SourceInfo.original lead pos "".toSubstring endPos)
+        stx := stx.setTailInfo (SourceInfo.original lead pos "".toRawSubstring endPos)
       let mut stx' := mkParen stx
       if let SourceInfo.original lead pos _ endPos := stx.getHeadInfo then
-        stx' := stx'.setHeadInfo (SourceInfo.original lead pos "".toSubstring endPos)
+        stx' := stx'.setHeadInfo (SourceInfo.original lead pos "".toRawSubstring endPos)
       if let SourceInfo.original _ pos trail endPos := stx.getTailInfo then
-        stx' := stx'.setTailInfo (SourceInfo.original "".toSubstring pos trail endPos)
+        stx' := stx'.setTailInfo (SourceInfo.original "".toRawSubstring pos trail endPos)
       trace[PrettyPrinter.parenthesize] "parenthesized: {stx'.formatStx none}"
       setCur stx'
       goLeft
@@ -307,6 +307,7 @@ def recover'.parenthesizer (p : PrettyPrinter.Parenthesizer) : PrettyPrinter.Par
 -- Note that there is a mutual recursion
 -- `categoryParser -> mkAntiquot -> termParser -> categoryParser`, so we need to introduce an indirection somewhere
 -- anyway.
+set_option compiler.ignoreBorrowAnnotation true in
 @[extern "lean_mk_antiquot_parenthesizer"]
 opaque mkAntiquot.parenthesizer' (name : String) (kind : SyntaxNodeKind) (anonymous := true) (isPseudoKind := false) : Parenthesizer
 
@@ -314,6 +315,7 @@ opaque mkAntiquot.parenthesizer' (name : String) (kind : SyntaxNodeKind) (anonym
   liftM x
 
 -- break up big mutual recursion
+set_option compiler.ignoreBorrowAnnotation true in
 @[extern "lean_pretty_printer_parenthesizer_interpret_parser_descr"]
 opaque interpretParserDescr' : ParserDescr → CoreM Parenthesizer
 
@@ -448,6 +450,10 @@ def checkPrec.parenthesizer (prec : Nat) : Parenthesizer :=
 
 @[combinator_parenthesizer withFn, expose]
 def withFn.parenthesizer (_ : ParserFn → ParserFn) (p : Parenthesizer) : Parenthesizer := p
+
+@[combinator_parenthesizer withForbiddens, expose]
+def withForbiddens.parenthesizer (tks : Array Token) (p : Parenthesizer)
+    (_h : tks.toList.Nodup) : Parenthesizer := p
 
 @[combinator_parenthesizer leadingNode, expose]
 def leadingNode.parenthesizer (k : SyntaxNodeKind) (prec : Nat) (p : Parenthesizer) : Parenthesizer := do

@@ -12,7 +12,6 @@ import Lean.Meta.CompletionName
 import Lean.Meta.Constructions.CtorIdx
 import Lean.Meta.NatTable
 import Lean.Elab.App
-import Lean.Meta.Tactic.Simp.Attr
 
 namespace Lean
 
@@ -232,7 +231,7 @@ public def mkCtorElim (indName : Name) : MetaM Unit := do
 Generate the `.toCtorIdx` and `.ctor.elim` definitions for the given inductive.
 
 This attribute is only meant to be used in `Init.Prelude` to build these constructions for
-types where we did not generate them imediatelly (due to `set_option genCtorIdx false`).
+types where we did not generate them immediately (due to `set_option genCtorIdx false`).
 -/
 @[builtin_doc]
 builtin_initialize registerBuiltinAttribute {

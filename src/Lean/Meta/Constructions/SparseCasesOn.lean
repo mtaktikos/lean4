@@ -3,21 +3,19 @@ Copyright (c) 2025 Lean FRO, LLC. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Joachim Breitner
 -/
-
 module
-
 prelude
 public import Lean.Meta.Basic
 import Lean.AddDecl
 import Lean.Meta.Constructions.CtorIdx
-import Lean.Meta.AppBuilder
-
+import Lean.Meta.HasNotBit
+import Lean.Meta.Transform
 /-!  See `mkSparseCasesOn` below.  -/
 
 namespace Lean.Meta
 
 
-private structure SparseCasesOnKey where
+structure SparseCasesOnKey where
   indName : Name
   ctors   : Array Name
   -- When this is created in a private context and thus may contain private references, we must
@@ -25,12 +23,23 @@ private structure SparseCasesOnKey where
   isPrivate : Bool
 deriving BEq, Hashable
 
-private builtin_initialize sparseCasesOnCacheExt : EnvExtension (PHashMap SparseCasesOnKey Name) ←
+builtin_initialize sparseCasesOnCacheExt : EnvExtension (PHashMap SparseCasesOnKey Name) ←
   registerEnvExtension (pure {}) (asyncMode := .local)  -- mere cache, keep it local
 
-def mkNatNe (n m : Nat) : Expr :=
-  mkApp3 (mkConst ``Nat.ne_of_beq_eq_false)
-    (mkNatLit n) (mkNatLit m) (mkApp2 (mkConst ``Eq.refl [1]) (mkConst ``Bool) (mkConst ``Bool.false))
+/-- Information necessary to recognize and split on sparse casesOn (in particular in MatchEqs) -/
+public structure SparseCasesOnInfo where
+  indName : Name
+  majorPos : Nat
+  arity : Nat
+  insterestingCtors : Array Name
+deriving Inhabited
+
+builtin_initialize sparseCasesOnInfoExt : MapDeclarationExtension SparseCasesOnInfo ←
+  mkMapDeclarationExtension (exportEntriesFn := fun env s =>
+    let all := s.toArray
+    -- Do not export for non-exposed defs at exported/server levels
+    let exported := s.filter (fun n _ => env.hasExposedBody n) |>.toArray
+    { exported, server := exported, «private» := all })
 
 /--
 This module creates sparse variants of `casesOn` that have arms only for some of the constructors,
@@ -38,11 +47,13 @@ offering a catch-all.
 
 The minor arguments come in the order of the given `ctors` array.
 
-The catch-all provides `x.ctorIdx ≠ i` hypotheses for each constructor `i` that is matched.
+The catch-all provides a `Nat.hasNotBit mask x.ctorIdx` hypothesis to express that these constructors
+were not matched. Using a single hypothesis like this, rather than many hypotheses of the form
+`x.ctorIdx ≠ i`, is important to avoid quadratic overhead in code like match splitter generation.
 
 This function is implemented with a simple call to `.rec`, i.e. no clever branching on the constructor
 index. The compiler has native support for these sparse matches anyways, and kernel reduction would
-not benefit from from a more sophisticated implementan unless it has itself native support for
+not benefit from a more sophisticated implementation unless it has itself native support for
 `.ctorIdx` and constructor elimination functions.
 -/
 public def mkSparseCasesOn (indName : Name) (ctors : Array Name) : MetaM Name := do
@@ -85,22 +96,17 @@ public def mkSparseCasesOn (indName : Name) (ctors : Array Name) : MetaM Name :=
       let minor := minors[ctorInfo.cidx]!
       pure minor
 
+    let overlappingIdxs ← ctors.mapM fun ctor => return (← getConstInfoCtor ctor).cidx
     let catchAllType ← id do
-      let overlapTypes ← ctors.mapIdxM fun i ctor => do
-        let ctorInfo ← getConstInfoCtor ctor
-        let lhs := mkAppN (mkConst ctorIdxName us) (params ++ indices ++ #[major])
-        let rhs := mkNatLit ctorInfo.cidx
-        let neq := mkApp3 (mkConst ``Ne [1]) (mkConst ``Nat) lhs rhs
-        let name := (`h).appendIndexAfter i
-        pure (name, neq)
-      withLocalDeclsDND overlapTypes fun hs =>
-        mkForallFVars hs (mkAppN motive ism)
+      let ctorIdxApp := mkAppN (mkConst ctorIdxName us) (params ++ indices ++ #[major])
+      let hyp := mkHasNotBit ctorIdxApp overlappingIdxs
+      withLocalDeclD `h hyp fun h =>
+        mkForallFVars #[h] (mkAppN motive ism)
 
-    -- Morally `mkConst casesOnInfo.name (u :: us)` but for faster reduction we unfold this here
     let e := casesOnInfo.value!
     let e := mkAppN e params
     let motive' ← id do
-      mkLambdaFVars ism (← mkArrow catchAllType (mkAppN motive ism))
+      mkLambdaFVars ism (mkForall (← mkFreshUserName `else) BinderInfo.default catchAllType (mkAppN motive ism))
     let e := mkApp e motive'
     let e := mkAppN e indices
     let e := mkApp e major
@@ -114,11 +120,8 @@ public def mkSparseCasesOn (indName : Name) (ctors : Array Name) : MetaM Name :=
         else
           let ctorInfo ← getConstInfoCtor ctor
           let idx := ctorInfo.cidx
-          let e := mkAppN elseMinor <| ← ctors.mapM fun ctor => do
-            let ctorInfo' ← getConstInfoCtor ctor
-            let otherIdx := ctorInfo'.cidx
-            return mkNatNe idx otherIdx
-          mkLambdaFVars ys e
+          mkLambdaFVars ys (mkApp elseMinor (← mkHasNotBitProof (mkRawNatLit idx) overlappingIdxs))
+    -- Unfold the `casesOn` to `rec` for faster reduction
     let e ← Core.betaReduce e
     mkLambdaFVars (params ++ #[motive] ++ indices ++ #[major] ++ minors') e
 
@@ -132,8 +135,19 @@ public def mkSparseCasesOn (indName : Name) (ctors : Array Name) : MetaM Name :=
   addDecl (.defnDecl decl)
   modifyEnv fun env => sparseCasesOnCacheExt.modifyState env fun s => s.insert key declName
   setReducibleAttribute declName
-  modifyEnv fun env => markAuxRecursor env declName -- TODO: is this right?
   modifyEnv fun env => markSparseCasesOn env declName
+  modifyEnv fun env => sparseCasesOnInfoExt.insert env declName {
+    indName
+    majorPos := indInfo.numParams + 1 + indInfo.numIndices,
+    arity := indInfo.numParams + 1 + indInfo.numIndices + 1 + ctors.size + 1
+    insterestingCtors := ctors
+  }
+  enableRealizationsForConst declName
   pure declName
 
-end Lean.Meta
+public def getSparseCasesOnInfoCore (env : Environment) (sparseCasesOnName : Name) : (Option SparseCasesOnInfo) := do
+  sparseCasesOnInfoExt.find? env sparseCasesOnName
+
+public def getSparseCasesOnInfo (sparseCasesOnName : Name) : CoreM (Option SparseCasesOnInfo) := do
+  let env ← getEnv
+  return sparseCasesOnInfoExt.find? env sparseCasesOnName

@@ -10,7 +10,6 @@ public import Lean.Server.InfoUtils
 public import Lean.Data.Lsp
 public import Init.Data.List.Sort.Basic
 import Lean.PrettyPrinter.Delaborator
-meta import Lean.Parser.Term
 
 public section
 
@@ -84,7 +83,7 @@ inductive SearchControl where
   /-- Stop the search through a syntax stack. -/
   | stop
 
-private def lineCommentPosition? (s : String) : Option s.ValidPos :=
+private def lineCommentPosition? (s : String) : Option s.Pos :=
   s.find? "--"
 
 private def isPositionInLineComment (text : FileMap) (pos : String.Pos.Raw) : Bool := Id.run do

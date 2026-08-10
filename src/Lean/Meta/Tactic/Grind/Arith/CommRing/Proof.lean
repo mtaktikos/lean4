@@ -11,13 +11,15 @@ public import Lean.Meta.Tactic.Grind.Arith.CommRing.NonCommSemiringM
 import Lean.Data.RArray
 import Lean.Meta.Tactic.Grind.Diseq
 import Lean.Meta.Tactic.Grind.ProofUtil
-import Lean.Meta.Tactic.Grind.Arith.Util
 import Lean.Meta.Tactic.Grind.Arith.CommRing.DenoteExpr
-import Lean.Meta.Tactic.Grind.Arith.CommRing.SafePoly
-import Lean.Meta.Tactic.Grind.Arith.CommRing.ToExpr
-import Lean.Meta.Tactic.Grind.Arith.CommRing.VarRename
+import Lean.Meta.Sym.Arith.ToExpr
+import Lean.Meta.Sym.Arith.VarRename
+import Init.Data.Nat.Order
+import Init.Data.Order.Lemmas
 public section
 namespace Lean.Meta.Grind.Arith.CommRing
+open Sym.Arith (MonadCanon)
+
 /--
 Returns a context of type `RArray α` containing the variables `vars` where
 `α` is the type of the ring.
@@ -383,7 +385,7 @@ private structure NormResult where
   vars : Array Expr
 
 private def norm (vars : PArray Expr) (lhs rhs lhs' rhs' : RingExpr) : NormResult :=
-  let usedVars     := lhs.collectVars >> lhs.collectVars >> lhs'.collectVars >> rhs'.collectVars <| {}
+  let usedVars     := lhs.collectVars >> rhs.collectVars >> lhs'.collectVars >> rhs'.collectVars <| {}
   let vars'        := usedVars.toArray
   let varRename    := mkVarRename vars'
   let vars         := vars'.map fun x => vars[x]!

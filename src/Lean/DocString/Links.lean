@@ -9,6 +9,10 @@ module
 prelude
 public import Lean.Syntax
 import Init.Data.String.TakeDrop
+import Init.Data.String.Search
+import Init.Data.ToString.Macro
+import Init.While
+import Init.Data.String.Length
 
 public section
 
@@ -70,7 +74,7 @@ def manualLink (kind name : String) : Except String String :=
     throw s!"Unknown documentation type `{kind}`. Expected one of the following: {acceptableKinds}"
 
 private def rw (path : String) : Except String String := do
-  match path.splitOn "/" with
+  match path.split '/' |>.toStringList with
   | [] | [""] =>
     throw "Missing documentation type"
   | kind :: args =>
@@ -105,34 +109,34 @@ def rewriteManualLinksCore (s : String) : Id (Array (Lean.Syntax.Range × String
   let scheme := "lean-manual://"
   let mut out := ""
   let mut errors := #[]
-  let mut iter := s.startValidPos
+  let mut iter := s.startPos
   while h : ¬iter.IsAtEnd do
     let c := iter.get h
     let pre := iter
     iter := iter.next h
 
-    if !lookingAt scheme pre then
+    match pre.skip? scheme with
+    | none =>
       out := out.push c
       continue
-
-    let start := pre.nextn scheme.length
-    let mut iter' := start
-    while h' : ¬iter'.IsAtEnd do
-      let c' := iter'.get h'
-      let pre' := iter'
-      iter' := iter'.next h'
-      if urlChar c' && ¬iter'.IsAtEnd then
-        continue
-      match rw (start.extract pre') with
-      | .error err =>
-        errors := errors.push (⟨pre.offset, pre'.offset⟩, err)
-        out := out.push c
-        break
-      | .ok path =>
-        out := out ++ manualRoot ++ path
-        out := out.push c'
-        iter := iter'
-        break
+    | some start =>
+      let mut iter' := start
+      while h' : ¬iter'.IsAtEnd do
+        let c' := iter'.get h'
+        let pre' := iter'
+        iter' := iter'.next h'
+        if urlChar c' && ¬iter'.IsAtEnd then
+          continue
+        match rw (s.extract start pre') with
+        | .error err =>
+          errors := errors.push (⟨pre.offset, pre'.offset⟩, err)
+          out := out.push c
+          break
+        | .ok path =>
+          out := out ++ manualRoot ++ path
+          out := out.push c'
+          iter := iter'
+          break
 
   pure (errors, out)
 
@@ -150,12 +154,6 @@ where
     -- ( and ) are excluded due to Markdown's link syntax
     c == '!' || c == '$' || c == '&' || c == '\'' || /- c == '(' || c == ')' || -/ c == '*' ||
     c == '+' || c == ',' || c == ';' || c == '='
-
-  /--
-  Returns `true` if `goal` is a prefix of the string at the position pointed to by `iter`.
-  -/
-  lookingAt (goal : String) {s : String} (iter : s.ValidPos) : Bool :=
-    String.Pos.Raw.substrEq s iter.offset goal 0 goal.rawEndPos.byteIdx
 
 /--
 Rewrites Lean reference manual links in `docstring` to point at the reference manual.
